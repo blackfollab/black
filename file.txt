@@ -1,0 +1,445 @@
+<?php
+// Start session and handle login/logout
+session_start();
+
+// Handle logout
+if (isset($_GET['logout'])) {
+    // Clear all session variables
+    $_SESSION = array();
+    
+    // Delete session cookie
+    if (ini_get("session.use_cookies")) {
+        $params = session_get_cookie_params();
+        setcookie(session_name(), '', time() - 42000,
+            $params["path"], $params["domain"],
+            $params["secure"], $params["httponly"]
+        );
+    }
+    
+    // Destroy the session
+    session_destroy();
+    
+    // Delete remember me cookie if exists
+    if (isset($_COOKIE['remember_me'])) {
+        setcookie('remember_me', '', time() - 3600, '/');
+    }
+    
+    // Redirect to login page
+    header("Location: " . str_replace('?logout', '', $_SERVER['REQUEST_URI']));
+    exit;
+}
+
+// Check if user is logged in via session or remember me cookie
+$is_logged_in = false;
+if (isset($_SESSION['db_credentials'])) {
+    $is_logged_in = true;
+    $db_credentials = $_SESSION['db_credentials'];
+} elseif (isset($_COOKIE['remember_me'])) {
+    // Check if remember me cookie is valid
+    $remember_data = json_decode(base64_decode($_COOKIE['remember_me']), true);
+    if (is_array($remember_data) && isset($remember_data['db_credentials'])) {
+        $is_logged_in = true;
+        $db_credentials = $remember_data['db_credentials'];
+        $_SESSION['db_credentials'] = $db_credentials;
+    }
+}
+
+// Process login form
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
+    $host = $_POST['host'] ?? '';
+    $db = $_POST['db'] ?? '';
+    $user = $_POST['user'] ?? '';
+    $pass = $_POST['pass'] ?? '';
+    $charset = $_POST['charset'] ?? 'utf8mb4';
+    $remember = isset($_POST['remember']);
+    
+    // Test database connection
+    try {
+        $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
+        $options = [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES   => false,
+        ];
+        $pdo = new PDO($dsn, $user, $pass, $options);
+        
+        // Store credentials in session
+        $db_credentials = compact('host', 'db', 'user', 'pass', 'charset');
+        $_SESSION['db_credentials'] = $db_credentials;
+        
+        // Set remember me cookie if requested
+        if ($remember) {
+            $remember_data = ['db_credentials' => $db_credentials];
+            $cookie_value = base64_encode(json_encode($remember_data));
+            setcookie('remember_me', $cookie_value, time() + (30 * 24 * 60 * 60), '/'); // 30 days
+        }
+        
+        $is_logged_in = true;
+    } catch (\PDOException $e) {
+        $error = "Database connection failed: " . $e->getMessage();
+    }
+}
+
+// If not logged in, show login form
+if (!$is_logged_in) {
+    ?>
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Database Login</title>
+        <style>
+            body { font-family: sans-serif; max-width: 500px; margin: 50px auto; padding: 20px; }
+            .login-form { background: #f9f9f9; padding: 20px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+            .form-group { margin-bottom: 15px; }
+            label { display: block; margin-bottom: 5px; font-weight: bold; }
+            input[type="text"], input[type="password"] { width: 100%; padding: 8px; box-sizing: border-box; }
+            button { background: #007bff; color: white; border: none; padding: 10px 15px; cursor: pointer; }
+            .error { color: red; margin-bottom: 15px; }
+        </style>
+    </head>
+    <body>
+        <h1>Database Login</h1>
+        <?php if (isset($error)): ?>
+            <div class="error"><?php echo htmlspecialchars($error); ?></div>
+        <?php endif; ?>
+        <form method="post" class="login-form">
+            <input type="hidden" name="login" value="1">
+            <div class="form-group">
+                <label for="host">Host:</label>
+                <input type="text" id="host" name="host" value="<?php echo htmlspecialchars($_POST['host'] ?? '127.0.0.1'); ?>" required>
+            </div>
+            <div class="form-group">
+                <label for="db">Database Name:</label>
+                <input type="text" id="db" name="db" value="<?php echo htmlspecialchars($_POST['db'] ?? ''); ?>" required>
+            </div>
+            <div class="form-group">
+                <label for="user">Username:</label>
+                <input type="text" id="user" name="user" value="<?php echo htmlspecialchars($_POST['user'] ?? ''); ?>" required>
+            </div>
+            <div class="form-group">
+                <label for="pass">Password:</label>
+                <input type="password" id="pass" name="pass" value="<?php echo htmlspecialchars($_POST['pass'] ?? ''); ?>">
+            </div>
+            <div class="form-group">
+                <label for="charset">Charset:</label>
+                <input type="text" id="charset" name="charset" value="<?php echo htmlspecialchars($_POST['charset'] ?? 'utf8mb4'); ?>">
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="remember" value="1" <?php echo isset($_POST['remember']) ? 'checked' : ''; ?>>
+                    Remember me (stay logged in)
+                </label>
+            </div>
+            <button type="submit">Connect to Database</button>
+        </form>
+    </body>
+    </html>
+    <?php
+    exit;
+}
+
+// If logged in, proceed with the database editor
+extract($db_credentials);
+
+// Create PDO connection with stored credentials
+try {
+    $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
+    $options = [
+        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES   => false,
+    ];
+    $pdo = new PDO($dsn, $user, $pass, $options);
+} catch (\PDOException $e) {
+    // If connection fails, clear session and redirect to login
+    unset($_SESSION['db_credentials']);
+    if (isset($_COOKIE['remember_me'])) {
+        setcookie('remember_me', '', time() - 3600, '/');
+    }
+    header("Location: " . $_SERVER['PHP_SELF']);
+    exit;
+}
+
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+// --- 2. Process POST Actions (Add, Update, Delete) ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+ 
+  // -- HANDLE INSERT --
+  if ($_POST['action'] === 'insert' && isset($_POST['data'], $_POST['table'])) {
+    $table = $_POST['table'];
+    $data = array_filter($_POST['data'], function($value) {
+      return $value !== '';
+    });
+    $columns = array_keys($data);
+    $placeholders = array_fill(0, count($columns), '?');
+    $sql = "INSERT INTO `$table` (`" . implode('`, `', $columns) . "`) VALUES (" . implode(', ', $placeholders) . ")";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(array_values($data));
+  }
+ 
+  // -- HANDLE UPDATE --
+  if ($_POST['action'] === 'update' && isset($_POST['data'], $_POST['table'], $_POST['primary_key'], $_POST['primary_value'])) {
+    $table = $_POST['table'];
+    $data = $_POST['data'];
+    $pk = $_POST['primary_key'];
+    $pk_val = $_POST['primary_value'];
+
+    // Filter out empty values to prevent a SQL syntax error
+    $data = array_filter($data, function($value) {
+      return $value !== '';
+    });
+
+    if (!empty($data)) {
+      $setParts = [];
+      $params = [];
+      foreach ($data as $col => $val) {
+        $setParts[] = "`$col` = ?";
+        $params[] = $val;
+      }
+      $params[] = $pk_val;
+      $sql = "UPDATE `$table` SET " . implode(', ', $setParts) . " WHERE `$pk` = ?";
+      $stmt = $pdo->prepare($sql);
+      $stmt->execute($params);
+    }
+  }
+ 
+  // -- HANDLE DELETE --
+  if ($_POST['action'] === 'delete' && isset($_POST['table'], $_POST['primary_key'], $_POST['primary_value'])) {
+    $table = $_POST['table'];
+    $pk = $_POST['primary_key'];
+    $pk_val = $_POST['primary_value'];
+    $sql = "DELETE FROM `$table` WHERE `$pk` = ?";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$pk_val]);
+  }
+
+    // --- NEW: Handle Add Column ---
+    if ($_POST['action'] === 'add_column' && isset($_POST['table'], $_POST['column_name'], $_POST['data_type'], $_POST['default_value'])) {
+        $table = $_POST['table'];
+        $columnName = $_POST['column_name'];
+        $dataType = $_POST['data_type'];
+        $defaultValue = $_POST['default_value'];
+
+        $sql = "ALTER TABLE `$table` ADD COLUMN `$columnName` $dataType";
+        
+        if (!empty($defaultValue)) {
+            $sql .= " DEFAULT " . $pdo->quote($defaultValue);
+        }
+        
+        try {
+            $pdo->exec($sql);
+        } catch (\PDOException $e) {
+            echo "<script>alert('Error: " . htmlspecialchars($e->getMessage()) . "');</script>";
+        }
+    }
+
+    // --- NEW: Handle Modify Column ---
+    if ($_POST['action'] === 'modify_column' && isset($_POST['table'], $_POST['old_column_name'], $_POST['new_column_name'], $_POST['new_data_type'])) {
+        $table = $_POST['table'];
+        $oldColumnName = $_POST['old_column_name'];
+        $newColumnName = $_POST['new_column_name'];
+        $newDataType = $_POST['new_data_type'];
+
+        $sql = "ALTER TABLE `$table` CHANGE COLUMN `$oldColumnName` `$newColumnName` $newDataType";
+        
+        try {
+            $pdo->exec($sql);
+        } catch (\PDOException $e) {
+            echo "<script>alert('Error: " . htmlspecialchars($e->getMessage()) . "');</script>";
+        }
+    }
+
+  // -- Redirect to the same page to prevent form resubmission --
+  header("Location: " . $_SERVER['PHP_SELF'] . "?table=" . urlencode($_POST['table']));
+  exit;
+}
+
+// --- 3. Pagination Setup ---
+// Number of records per page
+$limit = 20;
+
+// Get the current page number from the URL, default to 1
+$page = $_GET['page'] ?? 1;
+
+// Calculate the offset
+$offset = ($page - 1) * $limit;
+?>
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Database Editor</title>
+  <style>
+    body { font-family: sans-serif; }
+    h2 { margin-top: 40px; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 30px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background: #eee; }
+    td.actions-cell { display: flex; gap: 5px; }
+    tr.add-row td { background: #f9f9f9; }
+    input[type="text"], input[type="email"], input[type="number"] { box-sizing: border-box; width: 100%; }
+    button { padding: 5px 10px; cursor: pointer; }
+    button.delete-btn { background-color: #f44336; color: white; border: none; }
+    input:disabled { background: #eee; color: #999; }
+    .pagination { margin: 20px 0; display: flex; gap: 10px; }
+    .pagination a { padding: 8px 12px; border: 1px solid #ccc; text-decoration: none; color: #333; }
+    .pagination a.active { background-color: #007bff; color: white; border-color: #007bff; }
+    .column-forms { margin-top: 20px; padding: 15px; border: 1px solid #ddd; background: #f7f7f7; }
+        .column-forms h4 { margin-top: 0; }
+        .column-forms form { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .column-forms input, .column-forms select { padding: 5px; }
+    .logout-btn { 
+        position: fixed; 
+        top: 15px; 
+        right: 15px; 
+        background: #dc3545; 
+        color: white; 
+        padding: 8px 15px; 
+        text-decoration: none; 
+        border-radius: 4px;
+        z-index: 1000;
+    }
+    .logout-btn:hover { background: #c82333; }
+  </style>
+</head>
+<body>
+  <a href="?logout=1" class="logout-btn">Logout</a>
+  <h1>Database Table Editor</h1>
+
+<?php
+// Get all table names
+$tables = $pdo->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
+
+foreach ($tables as $tableName):
+  echo "<h2>Table: " . htmlspecialchars($tableName) . "</h2>";
+ 
+  $columnsResult = $pdo->query("DESCRIBE `$tableName`")->fetchAll(PDO::FETCH_ASSOC);
+  $primaryKey = '';
+  $isAutoIncrement = false;
+  foreach ($columnsResult as $col) {
+    if ($col['Key'] === 'PRI') {
+      $primaryKey = $col['Field'];
+      if (strpos($col['Extra'], 'auto_increment') !== false) {
+        $isAutoIncrement = true;
+      }
+      break;
+    }
+  }
+  if (empty($primaryKey) && !empty($columnsResult)) {
+    $primaryKey = $columnsResult[0]['Field'];
+  }
+ 
+  // New pagination queries
+  $totalRowsStmt = $pdo->query("SELECT COUNT(*) FROM `$tableName`");
+  $totalRows = $totalRowsStmt->fetchColumn();
+  $totalPages = ceil($totalRows / $limit);
+  $rows = $pdo->query("SELECT * FROM `$tableName` LIMIT $limit OFFSET $offset")->fetchAll(PDO::FETCH_ASSOC);
+?>
+    <div class="column-forms">
+        <h4>Add a New Column</h4>
+        <form method="post" action="">
+            <input type="hidden" name="action" value="add_column">
+            <input type="hidden" name="table" value="<?php echo htmlspecialchars($tableName); ?>">
+            <label>Name: <input type="text" name="column_name" required></label>
+            <label>Data Type:
+                <select name="data_type">
+                    <option value="VARCHAR(255)">VARCHAR(255)</option>
+                    <option value="INT">INT</option>
+                    <option value="TEXT">TEXT</option>
+                    <option value="DATE">DATE</option>
+                    <option value="BOOLEAN">BOOLEAN</option>
+                    <option value="FLOAT">FLOAT</option>
+                </select>
+            </label>
+            <label>Default Value: <input type="text" name="default_value"></label>
+            <button type="submit">Add Column</button>
+        </form>
+
+        <h4>Modify an Existing Column</h4>
+        <form method="post" action="">
+            <input type="hidden" name="action" value="modify_column">
+            <input type="hidden" name="table" value="<?php echo htmlspecialchars($tableName); ?>">
+            <label>Select Column:
+                <select name="old_column_name" required>
+                    <?php foreach ($columnsResult as $col): ?>
+                        <option value="<?php echo htmlspecialchars($col['Field']); ?>">
+                            <?php echo htmlspecialchars($col['Field']); ?> (<?php echo htmlspecialchars($col['Type']); ?>)
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+            <label>New Name: <input type="text" name="new_column_name" placeholder="Leave blank for no change"></label>
+            <label>New Data Type:
+                <select name="new_data_type" required>
+                    <option value="VARCHAR(255)">VARCHAR(255)</option>
+                    <option value="INT">INT</option>
+                    <option value="TEXT">TEXT</option>
+                    <option value="DATE">DATE</option>
+                    <option value="BOOLEAN">BOOLEAN</option>
+                    <option value="FLOAT">FLOAT</option>
+                </select>
+            </label>
+            <button type="submit">Modify Column</button>
+        </form>
+    </div>
+
+  <table>
+    <tr>
+      <?php foreach ($columnsResult as $col): ?>
+        <th><?php echo htmlspecialchars($col['Field']); ?></th>
+      <?php endforeach; ?>
+      <th>Action</th>
+    </tr>
+
+    <?php // Display existing rows
+    foreach ($rows as $row): ?>
+    <tr>
+      <form method="post" action="" style="display: contents;">
+        <input type="hidden" name="action" value="update">
+        <?php foreach ($columnsResult as $col): ?>
+          <td>
+<input type="text" name="data[<?php echo htmlspecialchars($col['Field']); ?>]" value="<?php echo htmlspecialchars($row[$col['Field']] ?? ''); ?>"></td>
+        <?php endforeach; ?>
+        <td class="actions-cell">
+          <input type="hidden" name="table" value="<?php echo htmlspecialchars($tableName); ?>">
+          <input type="hidden" name="primary_key" value="<?php echo htmlspecialchars($primaryKey); ?>">
+          <input type="hidden" name="primary_value" value="<?php echo htmlspecialchars($row[$primaryKey]); ?>">
+          <button type="submit">Save</button>
+      </form>
+      <form method="post" action="" style="display: contents;">
+          <input type="hidden" name="action" value="delete">
+          <input type="hidden" name="table" value="<?php echo htmlspecialchars($tableName); ?>">
+          <input type="hidden" name="primary_key" value="<?php echo htmlspecialchars($primaryKey); ?>">
+          <input type="hidden" name="primary_value" value="<?php echo htmlspecialchars($row[$primaryKey]); ?>">
+          <button type="submit" class="delete-btn" onclick="return confirm('Are you sure you want to delete this row?');">Delete</button>
+      </form>
+        </td>
+    </tr>
+    <?php endforeach; ?>
+
+    <?php // Display "Add New" form ?>
+    <tr class="add-row">
+      <form method="post" action="">
+        <input type="hidden" name="action" value="insert">
+        <input type="hidden" name="table" value="<?php echo htmlspecialchars($tableName); ?>">
+        <?php foreach ($columnsResult as $col): ?>
+        <td>
+          <?php $isDisabled = ($col['Field'] === $primaryKey && $isAutoIncrement); ?>
+          <input type="text" name="data[<?php echo htmlspecialchars($col['Field']); ?>]" placeholder="<?php echo htmlspecialchars($col['Field']); ?>" <?php if ($isDisabled) echo 'disabled title="Auto-Increment"'; ?>>
+        </td>
+        <?php endforeach; ?>
+        <td><button type="submit">Add Row</button></td>
+      </form>
+    </tr>
+  </table>
+
+  <div class="pagination">
+    <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+      <a class="<?php if ($i == $page) echo 'active'; ?>" href="?page=<?php echo $i; ?>"><?php echo $i; ?></a>
+    <?php endfor; ?>
+  </div>
+<?php endforeach; ?>
+</body>
+</html>

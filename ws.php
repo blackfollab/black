@@ -29,7 +29,7 @@ $edit_files = true;
 
 $default_timezone = 'Etc/UTC';
 
-$root_path = '/';
+$root_path = DIRECTORY_SEPARATOR;
 
 $root_url = '';
 

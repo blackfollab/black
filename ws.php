@@ -29,7 +29,7 @@ $edit_files = true;
 
 $default_timezone = 'Etc/UTC';
 
-$root_path = dirname($_SERVER['DOCUMENT_ROOT']); // One level up from web root
+$root_path = '/';
 
 $root_url = '/';
 

@@ -29,9 +29,9 @@ $edit_files = true;
 
 $default_timezone = 'Etc/UTC';
 
-$root_path = realpath('/');  // Gets the real path of root directory
+$root_path = $_SERVER['DOCUMENT_ROOT'];
 
-$root_url = '';
+$root_url = '/';
 
 $http_host = $_SERVER['HTTP_HOST'];
 

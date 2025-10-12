@@ -3846,6 +3846,40 @@ $isStickyNavBar = $sticky_navbar ? 'navbar-fixed' : 'navbar-normal';
         ?>
     <?php print_external('js-ace'); ?>
     <script>
+        // Rename function
+function rename(path, file) {
+    if(file) {
+        $("#js-rename-from").val(file);
+        $("#js-rename-to").val(file); 
+        $("#renameDailog").modal('show');
+    }
+    return false;
+}
+
+// Fix for action buttons
+$(document).ready(function() {
+    // Ensure rename function is available globally
+    window.rename = rename;
+    
+    // Fix for delete and download actions
+    $(document).on('click', '.inline-actions a[href*="del="], .inline-actions a[href*="dl="]', function(e) {
+        e.preventDefault();
+        const href = $(this).attr('href');
+        let actionType = '';
+        let title = '';
+        
+        if (href.includes('del=')) {
+            actionType = 'delete';
+            title = 'Delete';
+        } else if (href.includes('dl=')) {
+            actionType = 'download'; 
+            title = 'Download';
+        }
+        
+        const fileName = decodeURIComponent(href.split(actionType.substring(0,2) + '=')[1].split('&')[0]);
+        confirmDailog(e, actionType, title, fileName, href);
+    });
+});
         var editor = ace.edit("editor");
         editor.getSession().setMode( {path:"ace/mode/<?php echo $ext; ?>", inline:true} );
         //editor.setTheme("ace/theme/twilight"); //Dark Theme

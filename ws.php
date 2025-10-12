@@ -1,5 +1,5 @@
 <?php
-$CONFIG = '{"lang":"en","error_reporting":false,"show_hidden":true,"hide_Cols":false,"theme":"light"}';
+$CONFIG = '{"lang":"en","error_reporting":true,"show_hidden":true,"hide_Cols":false,"theme":"light"}';
 
 define('VERSION', '3.9');
 

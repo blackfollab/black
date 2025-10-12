@@ -3674,12 +3674,23 @@ $isStickyNavBar = $sticky_navbar ? 'navbar-fixed' : 'navbar-normal';
     <script>hljs.highlightAll(); var isHighlightingEnabled = true;</script>
 <?php endif; ?>
 <script>
+        // Global rename function
+    function rename(path, file) {
+        if(file) {
+            $("#js-rename-from").val(file);
+            $("#js-rename-to").val(file); 
+            var renameModal = new bootstrap.Modal(document.getElementById('renameDailog'));
+            renameModal.show();
+        }
+        return false;
+    }
+    window.rename = rename;
+
     function template(html,options){
         var re=/<\%([^\%>]+)?\%>/g,reExp=/(^( )?(if|for|else|switch|case|break|{|}))(.*)?/g,code='var r=[];\n',cursor=0,match;var add=function(line,js){js?(code+=line.match(reExp)?line+'\n':'r.push('+line+');\n'):(code+=line!=''?'r.push("'+line.replace(/"/g,'\\"')+'");\n':'');return add}
         while(match=re.exec(html)){add(html.slice(cursor,match.index))(match[1],!0);cursor=match.index+match[0].length}
         add(html.substr(cursor,html.length-cursor));code+='return r.join("");';return new Function(code.replace(/[\r\t\n]/g,'')).apply(options)
     }
-    function rename(e, t) { if(t) { $("#js-rename-from").val(t);$("#js-rename-to").val(t); $("#renameDailog").modal('show'); } }
     function change_checkboxes(e, t) { for (var n = e.length - 1; n >= 0; n--) e[n].checked = "boolean" == typeof t ? t : !e[n].checked }
     function get_checkboxes() { for (var e = document.getElementsByName("file[]"), t = [], n = e.length - 1; n >= 0; n--) (e[n].type = "checkbox") and t.push(e[n]); return t }
     function select_all() { change_checkboxes(get_checkboxes(), !0) }
@@ -3809,6 +3820,22 @@ $isStickyNavBar = $sticky_navbar ? 'navbar-fixed' : 'navbar-normal';
 
     // on mouse hover image preview
     !function(s){s.previewImage=function(e){var o=s(document),t=".previewImage",a=s.extend({xOffset:20,yOffset:-20,fadeIn:"fast",css:{padding:"5px",border:"1px solid #cccccc","background-color":"#fff"},eventSelector:"[data-preview-image]",dataKey:"previewImage",overlayId:"preview-image-plugin-overlay"},e);return o.off(t),o.on("mouseover"+t,a.eventSelector,function(e){s("p#"+a.overlayId).remove();var o=s("<p>").attr("id",a.overlayId).css("position","absolute").css("display","none").append(s('<img class="c-preview-img">').attr("src",s(this).data(a.dataKey)));a.cssando.css(a.css),s("body").append(o),o.css("top",e.pageY+a.yOffset+"px").css("left",e.pageX+a.xOffset+"px").fadeIn(a.fadeIn)}),o.on("mouseout"+t,a.eventSelector,function(){s("#"+a.overlayId).remove()}),o.on("mousemove"+t,a.eventSelector,function(e){s("#"+a.overlayId).css("top",e.pageY+a.yOffset+"px").css("left",e.pageX+a.xOffset+"px")}),this},s.previewImage()}(jQuery);
+    function rename(e, t) { if(t) { $("#js-rename-from").val(t);$("#js-rename-to").val(t); $("#renameDailog").modal('show'); } }
+// Global rename function - moved outside any conditional blocks
+function rename(path, file) {
+    if(file) {
+        $("#js-rename-from").val(file);
+        $("#js-rename-to").val(file); 
+        
+        // Use Bootstrap 5 method to show modal
+        var renameModal = new bootstrap.Modal(document.getElementById('renameDailog'));
+        renameModal.show();
+    }
+    return false;
+}
+
+// Make it available globally
+window.rename = rename;
 
     // Dom Ready Events
     $(document).ready( function () {
@@ -3818,6 +3845,30 @@ $isStickyNavBar = $sticky_navbar ? 'navbar-fixed' : 'navbar-normal';
             _targets = (tableLng and tableLng == 7 ) ? [0, 4,5,6] : tableLng == 5 ? [0,4] : [3];
             mainTable = $('#main-table').DataTable({paging: false, info: false, order: [], columnDefs: [{targets: _targets, orderable: false}]
         });
+    // Fix for action buttons
+$(document).ready(function() {
+    // Ensure rename function is available globally
+    window.rename = rename;
+    
+    // Fix for delete and download actions
+    $(document).on('click', '.inline-actions a[href*="del="], .inline-actions a[href*="dl="]', function(e) {
+        e.preventDefault();
+        const href = $(this).attr('href');
+        let actionType = '';
+        let title = '';
+        
+        if (href.includes('del=')) {
+            actionType = 'delete';
+            title = 'Delete';
+        } else if (href.includes('dl=')) {
+            actionType = 'download'; 
+            title = 'Download';
+        }
+        
+        const fileName = decodeURIComponent(href.split(actionType.substring(0,2) + '=')[1].split('&')[0]);
+        confirmDailog(e, actionType, title, fileName, href);
+    });
+});
         // filter table
         $('#search-addon').on( 'keyup', function () {
             mainTable.search( this.value ).draw();

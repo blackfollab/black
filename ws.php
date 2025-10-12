@@ -323,7 +323,15 @@ if ($dauth) {
 // if ($dauth and isset($_SESSION[DN_CESSION_ID]['logged'])) {
   ///  $root_path = isset($directories_users[$_SESSION[DN_CESSION_ID]['logged']]) ? $directories_users[$_SESSION[DN_CESSION_ID]['logged']] : $root_path;
 //}
-
+// Safe path normalization - preserves root directory
+if ($root_path !== '/' && $root_path !== '\\') {
+    $root_path = rtrim($root_path, '\\/');
+}
+$root_path = str_replace('\\', '/', $root_path);
+if (!@is_dir($root_path)) {
+    echo "<h1>".lng('Root path')." \"{$root_path}\" ".lng('not found!')." </h1>";
+    exit;
+}
 
 defined('FM_SHOW_HIDDEN') || define('FM_SHOW_HIDDEN', $show_hidden_files);
 defined('FM_ROOT_PATH') || define('FM_ROOT_PATH', $root_path);

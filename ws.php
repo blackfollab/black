@@ -19,7 +19,10 @@ $readonly_users = array(
 
 $global_readonly = false;
 
-$directories_users = array();
+$directories_users = array(
+    'admin' => '/',  // Map admin user to root
+    'user' => '/'    // Map user to root
+);
 
 $use_highlightjs = true;
 
@@ -317,9 +320,9 @@ if ($dauth) {
 }
 
 
-if ($dauth and isset($_SESSION[DN_CESSION_ID]['logged'])) {
-    $root_path = isset($directories_users[$_SESSION[DN_CESSION_ID]['logged']]) ? $directories_users[$_SESSION[DN_CESSION_ID]['logged']] : $root_path;
-}
+// if ($dauth and isset($_SESSION[DN_CESSION_ID]['logged'])) {
+  ///  $root_path = isset($directories_users[$_SESSION[DN_CESSION_ID]['logged']]) ? $directories_users[$_SESSION[DN_CESSION_ID]['logged']] : $root_path;
+//}
 
 $root_path = rtrim($root_path, '\\/');
 $root_path = str_replace('\\', '/', $root_path);

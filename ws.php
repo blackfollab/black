@@ -3869,6 +3869,12 @@ $(document).ready(function() {
         confirmDailog(e, actionType, title, fileName, href);
     });
 });
+     $(document).on('click', '.rename-action', function(e) {
+            e.preventDefault();
+            const path = $(this).data('path');
+            const file = $(this).data('file');
+            rename(path, file);
+        });
         // filter table
         $('#search-addon').on( 'keyup', function () {
             mainTable.search( this.value ).draw();

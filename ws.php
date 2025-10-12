@@ -12,17 +12,12 @@ $auth_users = array(
     'user' => '3085dc7572beea5231d9d6b6fb8f80c3'
 );
 
-$readonly_users = array(
-    'user'
-);
+$readonly_users = array(); 
 
 
 $global_readonly = false;
 
-$directories_users = array(
-    'admin' => '/',  // Map admin user to root
-    'user' => '/'    // Map user to root
-);
+$directories_users = array();
 
 $use_highlightjs = true;
 

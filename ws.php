@@ -5,7 +5,7 @@ define('VERSION', '3.9');
 
 define('APP_TITLE', 'gilour');
 
-$dauth = false;
+$dauth = true;
 
 $auth_users = array(
     'admin' => '3085dc7572beea5231d9d6b6fb8f80c3',

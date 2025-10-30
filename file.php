@@ -332,20 +332,21 @@ foreach ($listed as $name) {
             <button class="btn small" type="submit">Chmod</button>
           </form>';
 
-    if (!$isDir) {
-        echo '<form method="post">
-                <input type="hidden" name="action" value="download">
-                <input type="hidden" name="path" value="'.htmlspecialchars($rel).'">
-                <button class="btn small gray" type="submit">Download</button>
-              </form>';
+   if (!$isDir) {
+    echo '<form method="post">
+            <input type="hidden" name="action" value="download">
+            <input type="hidden" name="path" value="'.htmlspecialchars($rel).'">
+            <button class="btn small gray" type="submit">Download</button>
+          </form>';
+}
 
-        echo '<form method="post" style="margin-top:6px">
-                <input type="hidden" name="action" value="change_date">
-                <input type="hidden" name="path" value="'.htmlspecialchars($rel).'">
-                <input type="datetime-local" name="new_mtime" value="'.htmlspecialchars($mtime? date('Y-m-d\TH:i', $mtime) : '').'">
-                <button class="btn small" type="submit">Set Date</button>
-              </form>';
-    }
+// Date modification form for BOTH files and folders (moved outside the if condition)
+echo '<form method="post" style="margin-top:6px">
+        <input type="hidden" name="action" value="change_date">
+        <input type="hidden" name="path" value="'.htmlspecialchars($rel).'">
+        <input type="datetime-local" name="new_mtime" value="'.htmlspecialchars($mtime? date('Y-m-d\TH:i:s', $mtime) : '').'">
+        <button class="btn small" type="submit">Set Date</button>
+      </form>';
 
     echo '</td></tr>';
 }

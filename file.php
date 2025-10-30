@@ -200,7 +200,7 @@ if (is_file($CURRENT)) {
                     <input type="hidden" name="action" value="change_date">
                     <input type="hidden" name="path" value="'.htmlspecialchars($fileRel).'">
                     <label>Set Modified Date/Time</label>
-                    <input type="datetime-local" name="new_mtime" value="'.htmlspecialchars($mtime? date('Y-m-d\TH:i', $mtime) : '').'">
+                    <input type="datetime-local" name="new_mtime" value="'.htmlspecialchars($mtime? date('Y-m-d\TH:i', $mtime) : '').'" step="1">
                     <button class="btn" type="submit" style="margin-left:8px">Update</button>
                 </form>
             </div>
@@ -344,7 +344,7 @@ foreach ($listed as $name) {
 echo '<form method="post" style="margin-top:6px">
         <input type="hidden" name="action" value="change_date">
         <input type="hidden" name="path" value="'.htmlspecialchars($rel).'">
-        <input type="datetime-local" name="new_mtime" value="'.htmlspecialchars($mtime? date('Y-m-d\TH:i:s', $mtime) : '').'">
+        <input type="datetime-local" name="new_mtime" value="'.htmlspecialchars($mtime? date('Y-m-d\TH:i:s', $mtime) : '').'" step="1">
         <button class="btn small" type="submit">Set Date</button>
       </form>';
 

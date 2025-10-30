@@ -149,25 +149,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             exit;
 
         case 'save':
-            $fileRel = (string)($_POST['file_path'] ?? '');
-            $targetAbs = fm_safe_target($fileRel);
-            
-            if (!$targetAbs || !is_file($targetAbs)) {
-                $saveError = "Error: Invalid file path or file does not exist: " . htmlspecialchars($fileRel);
-            } else {
-                $content = (string)($_POST['content'] ?? '');
-
-                if (@file_put_contents($targetAbs, $content) === false) {
-                    $saveError = "Error: Failed to write to file. Check file permissions.";
-                } else {
-                    $saveSuccess = "File saved successfully!";
-                    // Update the file modification time
+    $fileRel = (string)($_POST['file_path'] ?? '');
+    $targetAbs = fm_safe_target($fileRel);
+    
+    if (!$targetAbs) {
+        error_log("SAVE FAILED: Safe target blocked - $fileRel");
+        $saveError = "Security validation failed for path: " . htmlspecialchars($fileRel);
+    } elseif (!is_file($targetAbs)) {
+        error_log("SAVE FAILED: Not a file - $targetAbs");
+        $saveError = "File does not exist: " . htmlspecialchars($fileRel);
+    } elseif (!is_writable($targetAbs)) {
+        error_log("SAVE FAILED: Not writable - $targetAbs");
+        $saveError = "File is not writable. Check permissions: " . htmlspecialchars($fileRel);
+    } else {
+        $content = (string)($_POST['content'] ?? '');
+        
+        // Use file locking to prevent race conditions
+        if ($handle = @fopen($targetAbs, 'wb')) {
+            if (flock($handle, LOCK_EX)) {
+                $bytes = fwrite($handle, $content);
+                fflush($handle);
+                flock($handle, LOCK_UN);
+                if ($bytes !== false) {
+                    $saveSuccess = "File saved successfully! (" . $bytes . " bytes written)";
+                    // Update modification time
                     @touch($targetAbs);
-                    // Refresh the content to show the saved version
-                    $content = @file_get_contents($targetAbs);
+                } else {
+                    $saveError = "Failed to write content to file.";
                 }
+            } else {
+                $saveError = "Could not lock file for writing (another process may be using it).";
             }
-            break;
+            fclose($handle);
+        } else {
+            $saveError = "Failed to open file for writing. Check file permissions.";
+        }
+    }
+    break;
 
         case 'change_date':
             $newM = (string)($_POST['new_mtime'] ?? '');
@@ -190,23 +208,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             exit;
     }
 }
-
 /* ==========================
    FILE EDIT VIEW
    ========================== */
 if (is_file($CURRENT)) {
+    // Double-check file accessibility
+    if (!is_readable($CURRENT) || !is_writable($CURRENT)) {
+        header("HTTP/1.0 403 Forbidden");
+        die("File access denied: Check file permissions for " . htmlspecialchars($CURRENT));
+    }
+    
     $content = @file_get_contents($CURRENT);
+    if ($content === false) {
+        header("HTTP/1.0 500 Internal Server Error");
+        die("Unable to read file: " . htmlspecialchars($CURRENT));
+    }
+    
     $fileRel = $reqPath;
     $parentRel = trim(dirname($fileRel), '/');
     $mtime = @filemtime($CURRENT);
     
-    // Check for save messages
+    // Enhanced save handling
     $saveMessage = '';
     if (!empty($saveSuccess)) {
         $saveMessage = '<div style="background:var(--ok);color:white;padding:10px;border-radius:8px;margin-bottom:16px;">'.$saveSuccess.'</div>';
     } elseif (!empty($saveError)) {
         $saveMessage = '<div style="background:var(--danger);color:white;padding:10px;border-radius:8px;margin-bottom:16px;">'.$saveError.'</div>';
     }
+    
     echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Edit '.htmlspecialchars(basename($CURRENT)).'</title>
     <style>
     :root{--bg:#f5f7fb;--card:#fff;--text:#111;--muted:#6c757d;--pri:#0d6efd;--danger:#dc3545;--warn:#fd7e14;--ok:#198754;}
@@ -230,7 +259,7 @@ if (is_file($CURRENT)) {
     echo $saveMessage;
 
     echo '<div class="bar">
-            <a class="btn outline" href="?path='.urlencode($parentRel).'"> Back</a>
+            <a class="btn outline" href="?path='.urlencode($parentRel).'"> ← Back</a>
             <form method="post" onsubmit="return confirm(\'Delete this file?\');" style="display:inline;">
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="path" value="'.htmlspecialchars($fileRel).'">
@@ -246,9 +275,10 @@ if (is_file($CURRENT)) {
     echo '<form method="post">
         <input type="hidden" name="action" value="save">
         <input type="hidden" name="file_path" value="'.htmlspecialchars($fileRel).'">
-        <textarea name="content">'.htmlspecialchars((string)$content).'</textarea>
+        <textarea name="content" id="fileContent">'.htmlspecialchars((string)$content).'</textarea>
         <div class="bar" style="margin-top:12px;">
-            <button class="btn" type="submit">Save</button>
+            <button class="btn" type="submit" id="saveBtn">Save Changes</button>
+            <span style="color:var(--muted);font-size:14px;margin-left:12px;">File: '.htmlspecialchars($fileRel).'</span>
         </div>
       </form>';
 
@@ -264,6 +294,30 @@ if (is_file($CURRENT)) {
             </div>
           </div>';
 
+    // Add some JavaScript to prevent accidental navigation
+    echo '<script>
+        let isDirty = false;
+        const textarea = document.getElementById("fileContent");
+        const saveBtn = document.getElementById("saveBtn");
+        
+        textarea.addEventListener("input", () => {
+            isDirty = true;
+            saveBtn.textContent = "Save Changes *";
+            saveBtn.style.background = "var(--warn)";
+        });
+        
+        window.addEventListener("beforeunload", (e) => {
+            if (isDirty) {
+                e.preventDefault();
+                e.returnValue = "You have unsaved changes. Are you sure you want to leave?";
+            }
+        });
+        
+        document.querySelector("form").addEventListener("submit", () => {
+            isDirty = false;
+        });
+    </script>';
+
     echo '</div></body></html>';
     exit;
 }
@@ -272,28 +326,54 @@ if (is_file($CURRENT)) {
 function fm_safe_target(string $rel, bool $forCreate = false): ?string {
     global $ROOT;
     
-    // Simple safety check - just ensure it's within ROOT
     $rel = ltrim($rel, "/");
+    
+    // Basic security checks
+    if (strpos($rel, '..') !== false || strpos($rel, "\0") !== false) {
+        error_log("SAFE_TARGET BLOCKED: Path traversal detected - $rel");
+        return null;
+    }
+    
     $target = $ROOT . '/' . $rel;
     
-    // Basic path traversal protection
-    if (strpos($rel, '..') !== false) {
-        return null;
-    }
-    
-    // For create operations, check if parent directory is within ROOT
     if ($forCreate) {
-        $parent = $ROOT . '/' . dirname($rel);
-        if (strpos(realpath($parent) ?: $parent, $ROOT) === 0) {
+        // For create operations, check if parent directory exists and is within ROOT
+        $parent = dirname($target);
+        
+        // Use realpath on parent only, not on target (which may not exist yet)
+        $parentReal = realpath($parent);
+        if ($parentReal === false) {
+            // Parent doesn't exist, but we might create it
+            // Check if the theoretical parent path is within ROOT
+            if (strpos($parent, $ROOT) === 0) {
+                return $target;
+            }
+            error_log("SAFE_TARGET BLOCKED: Parent outside ROOT - $parent");
+            return null;
+        }
+        
+        if (strpos($parentReal, $ROOT) === 0) {
             return $target;
         }
+        error_log("SAFE_TARGET BLOCKED: Parent realpath outside ROOT - $parentReal");
         return null;
     }
     
-    // For existing files, use realpath
-    $real = realpath($target);
-    return ($real && strpos($real, $ROOT) === 0) ? $real : null;
+    // For existing files, use a more tolerant approach
+    if (file_exists($target)) {
+        $real = realpath($target);
+        if ($real !== false && strpos($real, $ROOT) === 0) {
+            return $real;
+        }
+        error_log("SAFE_TARGET BLOCKED: File exists but realpath failed - $target");
+    } else {
+        error_log("SAFE_TARGET BLOCKED: File doesn't exist - $target");
+    }
+    
+    return null;
 }
+
+
 function fm_perms(string $path): string {
     return substr(sprintf('%o', fileperms($path)), -4);
 }

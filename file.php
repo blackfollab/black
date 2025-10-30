@@ -1,4 +1,14 @@
 <?php
+// Close any existing sessions first
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
+
+// Start fresh session for file manager
+session_name('filemanager');
+session_start();
+
+
 
 $ROOT = realpath('/');
 $reqPath = trim((string)($_GET['path'] ?? ''), "/");

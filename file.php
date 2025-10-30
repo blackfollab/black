@@ -1,4 +1,10 @@
 <?php
+// Enable all error reporting
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ini_set('log_errors', 1);
+
+// Your existing session code...
 // Close any existing sessions first
 if (session_status() === PHP_SESSION_ACTIVE) {
     session_write_close();
@@ -75,42 +81,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             exit;
 
         case 'upload':
-    if (!empty($_FILES['upload']['name'])) {
-        // Check for upload errors first
-        if ($_FILES['upload']['error'] !== UPLOAD_ERR_OK) {
-            $uploadError = "Upload failed with error code: " . $_FILES['upload']['error'];
-        } else {
-            $destAbs = fm_safe_target(($reqPath ? $reqPath.'/' : '').basename($_FILES['upload']['name']), true);
-            
-            if ($destAbs) {
-                $tempFile = $_FILES['upload']['tmp_name'];
-                
-                // Verify temp file exists and has content
-                if (!file_exists($tempFile)) {
-                    $uploadError = "Temporary upload file not found.";
-                } elseif (filesize($tempFile) === 0) {
-                    $uploadError = "Uploaded file is empty (0 bytes).";
-                } elseif (!copy($tempFile, $destAbs)) {
-                    $uploadError = "Failed to copy file to destination. Check permissions.";
-                } else {
-                    // Success - clean up temp file only after successful copy
-                    unlink($tempFile);
-                    $uploadSuccess = "File uploaded successfully!";
-                }
-            } else {
-                $uploadError = "Invalid destination path.";
-            }
-        }
-        
-        // Store upload result in session to display after redirect
-        if (isset($uploadError)) {
-            // You might want to store this in session to display after redirect
-            error_log("Upload error: " . $uploadError);
-        }
+    error_log("UPLOAD STARTED");
+    
+    // Check if file was uploaded successfully
+    if (empty($_FILES['upload']['name']) || $_FILES['upload']['error'] !== UPLOAD_ERR_OK) {
+        error_log("UPLOAD ERROR: " . ($_FILES['upload']['error'] ?? 'No file'));
+        header("Location: ?path=" . urlencode($reqPath));
+        exit;
     }
+
+    $filename = basename($_FILES['upload']['name']);
+    $destRel = ($reqPath ? $reqPath.'/' : '') . $filename;
+    $destAbs = fm_safe_target($destRel, true);
+    
+    error_log("Uploading: $filename to $destAbs");
+    
+    if (!$destAbs) {
+        error_log("UPLOAD BLOCKED: Safe target returned null");
+        header("Location: ?path=" . urlencode($reqPath));
+        exit;
+    }
+
+    $tempFile = $_FILES['upload']['tmp_name'];
+    
+    // Verify temp file
+    if (!file_exists($tempFile)) {
+        error_log("UPLOAD ERROR: Temp file missing");
+        header("Location: ?path=" . urlencode($reqPath));
+        exit;
+    }
+
+    // Ensure directory exists
+    $destDir = dirname($destAbs);
+    if (!is_dir($destDir)) {
+        mkdir($destDir, 0755, true);
+    }
+
+    // Copy with error handling
+    if (copy($tempFile, $destAbs)) {
+        error_log("UPLOAD SUCCESS: $destAbs");
+        // Verify the copy worked
+        if (file_exists($destAbs) && filesize($destAbs) > 0) {
+            error_log("UPLOAD VERIFIED: File exists with size " . filesize($destAbs));
+        } else {
+            error_log("UPLOAD WARNING: Copy succeeded but file missing or empty");
+        }
+        unlink($tempFile);
+    } else {
+        error_log("UPLOAD FAILED: Copy operation failed");
+        error_log("Source readable: " . (is_readable($tempFile) ? 'YES' : 'NO'));
+        error_log("Dest writable: " . (is_writable($destDir) ? 'YES' : 'NO'));
+        error_log("Last error: " . (error_get_last()['message'] ?? 'Unknown'));
+    }
+
     header("Location: ?path=" . urlencode($reqPath));
     exit;
-
         case 'download':
             if ($targetAbs && is_file($targetAbs)) {
                 header('Content-Description: File Transfer');
@@ -246,18 +271,29 @@ if (is_file($CURRENT)) {
 
 function fm_safe_target(string $rel, bool $forCreate = false): ?string {
     global $ROOT;
+    
+    // Simple safety check - just ensure it's within ROOT
     $rel = ltrim($rel, "/");
     $target = $ROOT . '/' . $rel;
-    if ($forCreate) {
-        $parent = realpath(dirname($target));
-        if ($parent !== false && strpos($parent, $ROOT) === 0) return $target;
+    
+    // Basic path traversal protection
+    if (strpos($rel, '..') !== false) {
         return null;
     }
+    
+    // For create operations, check if parent directory is within ROOT
+    if ($forCreate) {
+        $parent = $ROOT . '/' . dirname($rel);
+        if (strpos(realpath($parent) ?: $parent, $ROOT) === 0) {
+            return $target;
+        }
+        return null;
+    }
+    
+    // For existing files, use realpath
     $real = realpath($target);
-    if ($real !== false && strpos($real, $ROOT) === 0) return $real;
-    return null;
+    return ($real && strpos($real, $ROOT) === 0) ? $real : null;
 }
-
 function fm_perms(string $path): string {
     return substr(sprintf('%o', fileperms($path)), -4);
 }

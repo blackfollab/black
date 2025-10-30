@@ -65,18 +65,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             exit;
 
         case 'upload':
-            if (!empty($_FILES['upload']['name'])) {
-                $destAbs = fm_safe_target(($reqPath ? $reqPath.'/' : '').basename($_FILES['upload']['name']), true);
-                if ($destAbs && file_exists($_FILES['upload']['tmp_name']) && filesize($_FILES['upload']['tmp_name']) > 0) {
-                    // Use copy() instead of move_uploaded_file()
-                    if (copy($_FILES['upload']['tmp_name'], $destAbs)) {
-                        // Clean up temporary file
-                        unlink($_FILES['upload']['tmp_name']);
-                    }
+    if (!empty($_FILES['upload']['name'])) {
+        // Check for upload errors first
+        if ($_FILES['upload']['error'] !== UPLOAD_ERR_OK) {
+            $uploadError = "Upload failed with error code: " . $_FILES['upload']['error'];
+        } else {
+            $destAbs = fm_safe_target(($reqPath ? $reqPath.'/' : '').basename($_FILES['upload']['name']), true);
+            
+            if ($destAbs) {
+                $tempFile = $_FILES['upload']['tmp_name'];
+                
+                // Verify temp file exists and has content
+                if (!file_exists($tempFile)) {
+                    $uploadError = "Temporary upload file not found.";
+                } elseif (filesize($tempFile) === 0) {
+                    $uploadError = "Uploaded file is empty (0 bytes).";
+                } elseif (!copy($tempFile, $destAbs)) {
+                    $uploadError = "Failed to copy file to destination. Check permissions.";
+                } else {
+                    // Success - clean up temp file only after successful copy
+                    unlink($tempFile);
+                    $uploadSuccess = "File uploaded successfully!";
                 }
+            } else {
+                $uploadError = "Invalid destination path.";
             }
-            header("Location: ?path=" . urlencode($reqPath));
-            exit;
+        }
+        
+        // Store upload result in session to display after redirect
+        if (isset($uploadError)) {
+            // You might want to store this in session to display after redirect
+            error_log("Upload error: " . $uploadError);
+        }
+    }
+    header("Location: ?path=" . urlencode($reqPath));
+    exit;
 
         case 'download':
             if ($targetAbs && is_file($targetAbs)) {

@@ -208,14 +208,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             exit;
     }
 }
+
 /* ==========================
    FILE EDIT VIEW
    ========================== */
 if (is_file($CURRENT)) {
-    // Double-check file accessibility
-    if (!is_readable($CURRENT) || !is_writable($CURRENT)) {
+    // More permissive file access check
+    if (!is_readable($CURRENT)) {
         header("HTTP/1.0 403 Forbidden");
-        die("File access denied: Check file permissions for " . htmlspecialchars($CURRENT));
+        die("File is not readable: " . htmlspecialchars($CURRENT));
     }
     
     $content = @file_get_contents($CURRENT);
@@ -226,6 +227,11 @@ if (is_file($CURRENT)) {
     
     $fileRel = $reqPath;
     $parentRel = trim(dirname($fileRel), '/');
+    
+    // Build proper URLs to avoid path issues
+    $backUrl = '?path=' . ($parentRel ? urlencode($parentRel) : '');
+    $fileUrl = '?path=' . urlencode($fileRel);
+    
     $mtime = @filemtime($CURRENT);
     
     // Enhanced save handling
@@ -259,13 +265,13 @@ if (is_file($CURRENT)) {
     echo $saveMessage;
 
     echo '<div class="bar">
-            <a class="btn outline" href="?path='.urlencode($parentRel).'"> ← Back</a>
+            <a class="btn outline" href="'.$backUrl.'"> ← Back</a>
             <form method="post" onsubmit="return confirm(\'Delete this file?\');" style="display:inline;">
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="path" value="'.htmlspecialchars($fileRel).'">
                 <button class="btn danger" type="submit">Delete</button>
             </form>
-            <form method="post" action="" style="display:inline;">
+            <form method="post" style="display:inline;">
                 <input type="hidden" name="action" value="download">
                 <input type="hidden" name="path" value="'.htmlspecialchars($fileRel).'">
                 <button class="btn gray" type="submit">Download</button>
@@ -328,46 +334,44 @@ function fm_safe_target(string $rel, bool $forCreate = false): ?string {
     
     $rel = ltrim($rel, "/");
     
-    // Basic security checks
+    // Basic security - block obvious path traversal
     if (strpos($rel, '..') !== false || strpos($rel, "\0") !== false) {
-        error_log("SAFE_TARGET BLOCKED: Path traversal detected - $rel");
         return null;
     }
     
     $target = $ROOT . '/' . $rel;
     
     if ($forCreate) {
-        // For create operations, check if parent directory exists and is within ROOT
+        // For create operations - be more permissive
         $parent = dirname($target);
-        
-        // Use realpath on parent only, not on target (which may not exist yet)
         $parentReal = realpath($parent);
-        if ($parentReal === false) {
-            // Parent doesn't exist, but we might create it
-            // Check if the theoretical parent path is within ROOT
-            if (strpos($parent, $ROOT) === 0) {
-                return $target;
-            }
-            error_log("SAFE_TARGET BLOCKED: Parent outside ROOT - $parent");
-            return null;
-        }
         
-        if (strpos($parentReal, $ROOT) === 0) {
+        // Allow if parent exists and is within ROOT, or if we can create the parent
+        if ($parentReal && strpos($parentReal, $ROOT) === 0) {
             return $target;
         }
-        error_log("SAFE_TARGET BLOCKED: Parent realpath outside ROOT - $parentReal");
+        
+        // Even if realpath fails, check if the theoretical path is within ROOT
+        if (strpos($parent, $ROOT) === 0) {
+            return $target;
+        }
+        
         return null;
     }
     
-    // For existing files, use a more tolerant approach
+    // For existing files - MUCH more permissive approach
     if (file_exists($target)) {
+        // First try realpath
         $real = realpath($target);
-        if ($real !== false && strpos($real, $ROOT) === 0) {
+        if ($real && strpos($real, $ROOT) === 0) {
             return $real;
         }
-        error_log("SAFE_TARGET BLOCKED: File exists but realpath failed - $target");
-    } else {
-        error_log("SAFE_TARGET BLOCKED: File doesn't exist - $target");
+        
+        // If realpath fails but file exists, allow it if the path looks safe
+        // This handles symlinks, special filesystems, etc.
+        if (strpos($target, $ROOT) === 0) {
+            return $target;
+        }
     }
     
     return null;

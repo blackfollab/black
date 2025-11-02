@@ -261,8 +261,17 @@ body{
     .btn.outline{background:transparent;color:var(--pri);border:1px solid #dbe2ea}
     .btn.danger{background:var(--danger)}
     .btn.gray{background:#e9edf3;color:#111}
-    textarea{width:100%;height:60vh;border:1px solid #e1e6ee;border-radius:12px;padding:12px;font-family:ui-monospace,SFMono-Regular,Consolas,Monaco,monospace}
-    .row{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
+textarea{
+    width:100%;
+    height:60vh;
+    border:1px solid #475569;
+    border-radius:12px;
+    padding:12px;
+    font-family:ui-monospace,SFMono-Regular,Consolas,Monaco,monospace;
+    background: #1a2332; /* Slightly darker than the card background */
+    color: #e2e8f0; /* Light text color */
+    resize: vertical; /* Optional: only allow vertical resizing */
+}    .row{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
     .card{background:#fff;border-radius:14px;padding:14px;border:1px solid #eef2f7}
     label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px}
     input[type="datetime-local"]{padding:8px 10px;border:1px solid #e1e6ee;border-radius:10px}

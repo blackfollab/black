@@ -238,9 +238,24 @@ if (is_file($CURRENT)) {
     
     echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Edit '.htmlspecialchars(basename($CURRENT)).'</title>
     <style>
-    :root{--bg:#f5f7fb;--card:#fff;--text:#111;--muted:#6c757d;--pri:#0d6efd;--danger:#dc3545;--warn:#fd7e14;--ok:#198754;}
-    body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;padding:24px}
-    .wrap{max-width:1100px;margin:0 auto}
+    :root{
+    --bg: #0f172a; /* Dark blue background */
+    --card: #1e293b; /* Darker cards/containers */
+    --text: #e2e8f0; /* Light gray text */
+    --muted: #94a3b8; /* Muted text */
+    --pri: #3b82f6; /* Blue primary */
+    --danger: #ef4444; /* Red danger */
+    --warn: #f59e0b; /* Amber warning */
+    --ok: #10b981; /* Green success */
+}
+body{
+    margin:0;
+    background:var(--bg);
+    color: var(--text); /* Add text color */
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;
+    padding:24px
+}
+.wrap{max-width:1100px;margin:0 auto}
     .bar{display:flex;gap:8px;align-items:center;margin-bottom:16px}
     .btn{padding:8px 12px;border:none;border-radius:10px;background:var(--pri);color:#fff;font-weight:600;cursor:pointer}
     .btn.outline{background:transparent;color:var(--pri);border:1px solid #dbe2ea}
@@ -392,26 +407,62 @@ $listed = array_merge($dirs, $files);
 
 echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>File Manager</title>
 <style>
-:root{--bg:#f5f7fb;--card:#fff;--text:#111;--muted:#6c757d;--pri:#0d6efd;--danger:#dc3545;--warn:#fd7e14;--ok:#198754;}
+:root{
+    --bg: #0f172a; /* Dark blue background */
+    --card: #1e293b; /* Darker cards/containers */
+    --text: #e2e8f0; /* Light gray text */
+    --muted: #94a3b8; /* Muted text */
+    --pri: #3b82f6; /* Blue primary */
+    --danger: #ef4444; /* Red danger */
+    --warn: #f59e0b; /* Amber warning */
+    --ok: #10b981; /* Green success */
+}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;padding:24px}
+body{
+    margin:0;
+    background:var(--bg);
+    color: var(--text); /* Add text color */
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;
+    padding:24px
+}
 .wrap{max-width:1200px;margin:0 auto}
 h1{margin:0 0 16px;font-size:22px}
 table{width:100%;border-collapse:separate;border-spacing:0 8px}
 th,td{padding:10px 12px}
-tr{background:#fff;border:1px solid #eef2f7;border-radius:12px}
+tr{
+    background: var(--card); /* Changed from #fff */
+    border:1px solid #334155; /* Darker border */
+    border-radius:12px
+}
 tr td:first-child{border-top-left-radius:12px;border-bottom-left-radius:12px}
 tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:12px}
 th{font-size:12px;color:var(--muted);text-align:left}
 .name a{color:#0a58ca;text-decoration:none}
-.badge{font-size:12px;color:#555;background:#eef2f7;padding:4px 8px;border-radius:20px}
+.badge{
+    font-size:12px;
+    color:var(--text); /* Changed from #555 */
+    background:#475569; /* Darker background */
+    padding:4px 8px;
+    border-radius:20px
+}
 .actions form{display:inline;margin:0 4px}
 .btn{padding:6px 10px;border:none;border-radius:10px;background:var(--pri);color:#fff;font-weight:600;cursor:pointer}
 .btn.small{padding:5px 8px;font-size:12px}
 .btn.danger{background:var(--danger)}
 .btn.warn{background:var(--warn)}
-.btn.gray{background:#e9edf3;color:#111}
-input[type="text"],input[type="datetime-local"],input[type="file"]{padding:6px 8px;border:1px solid #e1e6ee;border-radius:10px}
+.btn.gray{
+    background:#475569; /* Darker gray */
+    color:var(--text) /* Changed from #111 */
+}
+input[type="text"],
+input[type="datetime-local"],
+input[type="file"]{
+    padding:6px 8px;
+    border:1px solid #475569; /* Darker border */
+    border-radius:10px;
+    background: var(--card); /* Dark background */
+    color: var(--text); /* Light text */
+}
 .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
 .icon{margin-right:6px}
 .meta{font-size:12px;color:var(--muted)}

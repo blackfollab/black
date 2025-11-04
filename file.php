@@ -281,7 +281,41 @@ textarea{
     .card{background:#1a2332;border-radius:14px;padding:14px;border:1px solid #475569}
     label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px}
     input[type="datetime-local"]{padding:8px 10px;border:1px solid #e1e6ee;border-radius:10px}
-    </style></head><body><div class="wrap">';
+    .breadcrumb a:link {
+  color: #829bb0;
+}
+
+.breadcrumb a:visited {
+  color: #829bb0;
+}
+
+.breadcrumb a:hover {
+  color: #9bc0e1;
+}
+
+.breadcrumb a:active {
+  color: #9bc0e1;
+}
+/* Unvisited link */
+a:link {
+  color: #829bb0;
+}
+
+/* Visited link */
+a:visited {
+  color: #829bb0;
+}
+
+/* Mouse over link */
+a:hover {
+  color: #9bc0e1;
+}
+
+/* Selected link */
+a:active {
+  color: #9bc0e1;
+}
+</style></head><body><div class="wrap">';
 
     echo fm_breadcrumb($reqPath);
     
@@ -289,7 +323,7 @@ textarea{
     echo $saveMessage;
 
     echo '<div class="bar">
-            <a class="btn gray" href="?path='.urlencode($parentRel).'"> ← Back</a>
+            <a class="btn gray" style="display:inline;" href="?path='.urlencode($parentRel).'"> ← Back</a>
             <form method="post" onsubmit="return confirm(\'Delete this file?\');" style="display:inline;">
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="path" value="'.htmlspecialchars($fileRel).'">
@@ -549,7 +583,7 @@ foreach ($listed as $name) {
     $abs = $CURRENT . '/' . $name;
     $rel = ($reqPath === '' ? $name : $reqPath . '/' . $name);
     $isDir = is_dir($abs);
-    $icon = $isDir ? '&#fff;' : '&#fff;';
+    $icon = $isDir ? '&#128193;' : '&#128196;';
     $mtime = @filemtime($abs);
     $mtimeStr = $mtime ? date('Y-m-d H:i:s', $mtime) : '-';
     $perms = fm_perms($abs);

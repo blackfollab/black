@@ -323,7 +323,10 @@ a:active {
     echo $saveMessage;
 
     echo '<div class="bar">
-            <a class="btn gray" style="display:inline;" href="?path='.urlencode($parentRel).'"> ← Back</a>
+            <form method="get" style="display:inline;">
+    <input type="hidden" name="path" value="'.urlencode($parentRel).'">
+    <button class="btn gray" type="submit">← Back</button>
+</form>
             <form method="post" onsubmit="return confirm(\'Delete this file?\');" style="display:inline;">
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="path" value="'.htmlspecialchars($fileRel).'">

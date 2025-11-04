@@ -334,7 +334,7 @@ a:active {
 
     echo '<div class="bar">
     
-            <a class="btn gray small" href="?path='.urlencode($parentRel).'" style="display:inline; text-decoration:none;">← Back</a>
+            <a class="btn gray" href="?path='.urlencode($parentRel).'" style="display:inline; text-decoration:none;">← Back</a>
            
 
             <form method="post" onsubmit="return confirm(\'Delete this file?\');" style="display:inline;">

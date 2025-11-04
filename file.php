@@ -1,8 +1,7 @@
 <head>
     <title>File Manager</title>
     
-    <!-- Or for the PNG version -->
-    <link rel="icon" type="image/png" href="https://www.creativefabrica.com/wp-content/uploads/2020/01/05/file-manager-flat-icon-vector-Graphics-1-5-580x386.jpg">
+   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📁</text></svg>">
 </head>
 <?php
 // Enable all error reporting

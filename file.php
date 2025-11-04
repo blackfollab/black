@@ -333,7 +333,9 @@ a:active {
     echo '<br>';
 
     echo '<div class="bar">
-         <a class="btn gray" href="?path=<?php echo urlencode($parentRel); ?>" style="display:inline-block; text-decoration:none; padding: 8px 16px; border: 1px solid #ccc; background: #f0f0f0; color: #333; border-radius: 4px; cursor: pointer;">← Back</a>
+    
+            <a class="btn gray" href="?path='.urlencode($parentRel).'" style="display:inline-block; text-decoration:none; padding: 8px 16px; border: 1px solid #ccc; background: #f0f0f0; color: #333; border-radius: 4px; cursor: pointer;">← Back</a>
+           
             <form method="post" onsubmit="return confirm(\'Delete this file?\');" style="display:inline;">
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="path" value="'.htmlspecialchars($fileRel).'">

@@ -278,7 +278,7 @@ textarea{
     color: #e2e8f0; /* Light text color */
     resize: vertical; /* Optional: only allow vertical resizing */
 }    .row{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
-    .card{background:#fff;border-radius:14px;padding:14px;border:1px solid #eef2f7}
+    .card{background:#1a2332;border-radius:14px;padding:14px;border:1px solid #475569}
     label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px}
     input[type="datetime-local"]{padding:8px 10px;border:1px solid #e1e6ee;border-radius:10px}
     </style></head><body><div class="wrap">';
@@ -481,7 +481,7 @@ input[type="file"]{
 .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
 .icon{margin-right:6px}
 .meta{font-size:12px;color:var(--muted)}
-.breadcrumb a{color:#0a58ca;text-decoration:none}
+.breadcrumb a{color:#3c678d;text-decoration:none}
 </style></head><body><div class="wrap">';
 
 echo fm_breadcrumb($reqPath);
@@ -492,17 +492,17 @@ echo '<div class="toolbar">
         <form method="post" enctype="multipart/form-data">
             <input type="hidden" name="action" value="upload">
             <input type="file" name="upload" required>
-            <button class="btn small" type="submit">Upload</button>
+            <button class="btn gray small" type="submit">Upload</button>
         </form>
         <form method="post">
             <input type="hidden" name="action" value="create_file">
             <input type="text" name="name" placeholder="newfile.txt" required>
-            <button class="btn small" type="submit">Create File</button>
+            <button class="btn gray small" type="submit">Create File</button>
         </form>
         <form method="post">
             <input type="hidden" name="action" value="create_folder">
             <input type="text" name="name" placeholder="New Folder" required>
-            <button class="btn small" type="submit">Create Folder</button>
+            <button class="btn gray small" type="submit">Create Folder</button>
         </form>
         <form method="post" action="?logout=1" onsubmit="return confirm(\'Logout?\');">
             <button class="btn gray small" type="submit">Logout</button>
@@ -529,14 +529,14 @@ foreach ($listed as $name) {
     echo '<form method="post" onsubmit="return confirm(\'Delete '.htmlspecialchars($name).'?\');">
             <input type="hidden" name="action" value="delete">
             <input type="hidden" name="path" value="'.htmlspecialchars($rel).'">
-            <button class="btn small danger" type="submit">Delete</button>
+            <button class="btn grey small danger" type="submit">Delete</button>
           </form>';
 
     echo '<form method="post">
             <input type="hidden" name="action" value="rename">
             <input type="hidden" name="path" value="'.htmlspecialchars($rel).'">
             <input type="text" name="new_name" placeholder="Rename to" required>
-            <button class="btn small warn" type="submit">Rename</button>
+            <button class="btn gray small" type="submit">Rename</button>
           </form>';
 
     // NEW: chmod form
@@ -544,7 +544,7 @@ foreach ($listed as $name) {
             <input type="hidden" name="action" value="chmod">
             <input type="hidden" name="path" value="'.htmlspecialchars($rel).'">
             <input type="text" name="new_perms" placeholder="'.$perms.'" pattern="[0-7]{3,4}" required>
-            <button class="btn small" type="submit">Chmod</button>
+            <button class="btn gray small" type="submit">Chmod</button>
           </form>';
 
    if (!$isDir) {
@@ -560,7 +560,7 @@ echo '<form method="post" style="margin-top:6px">
         <input type="hidden" name="action" value="change_date">
         <input type="hidden" name="path" value="'.htmlspecialchars($rel).'">
         <input type="datetime-local" name="new_mtime" value="'.htmlspecialchars($mtime? date('Y-m-d\TH:i:s', $mtime) : '').'" step="1">
-        <button class="btn small" type="submit">Set Date</button>
+        <button class="btn gray small" type="submit">Set Date</button>
       </form>';
 
     echo '</td></tr>';

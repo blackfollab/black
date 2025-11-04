@@ -331,7 +331,7 @@ a:active {
     // Display save message here
     echo $saveMessage;
 
-    echo 'br';
+    echo '<br>';
 
     echo '<div class="bar">
             <form method="get" style="display:inline;">

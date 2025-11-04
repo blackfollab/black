@@ -1,5 +1,5 @@
 <head>
-    <title>Adminer</title>
+    <title>File Manager</title>
     
     <!-- Or for the PNG version -->
     <link rel="icon" type="image/png" href="https://www.creativefabrica.com/wp-content/uploads/2020/01/05/file-manager-flat-icon-vector-Graphics-1-5-580x386.jpg">

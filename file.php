@@ -485,7 +485,7 @@ input[type="file"]{
 </style></head><body><div class="wrap">';
 
 echo fm_breadcrumb($reqPath);
-
+echo '<hr>'
 echo '<h1>Browsing: '.htmlspecialchars($reqPath === '' ? '/' : $reqPath).'</h1>';
 
 echo '<div class="toolbar">
@@ -517,7 +517,7 @@ foreach ($listed as $name) {
     $abs = $CURRENT . '/' . $name;
     $rel = ($reqPath === '' ? $name : $reqPath . '/' . $name);
     $isDir = is_dir($abs);
-    $icon = $isDir ? '&#128193;' : '&#128196;';
+    $icon = $isDir ? '&#fff;' : '&#fff;';
     $mtime = @filemtime($abs);
     $mtimeStr = $mtime ? date('Y-m-d H:i:s', $mtime) : '-';
     $perms = fm_perms($abs);
@@ -555,7 +555,7 @@ foreach ($listed as $name) {
           </form>';
 }
 
-// Date modification form for BOTH files and folders (moved outside the if condition)
+
 echo '<form method="post" style="margin-top:6px">
         <input type="hidden" name="action" value="change_date">
         <input type="hidden" name="path" value="'.htmlspecialchars($rel).'">

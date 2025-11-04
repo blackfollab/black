@@ -289,7 +289,7 @@ textarea{
     echo $saveMessage;
 
     echo '<div class="bar">
-            <a class="btn outline" href="?path='.urlencode($parentRel).'"> ← Back</a>
+            <a class="btn gray" href="?path='.urlencode($parentRel).'"> ← Back</a>
             <form method="post" onsubmit="return confirm(\'Delete this file?\');" style="display:inline;">
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="path" value="'.htmlspecialchars($fileRel).'">
@@ -307,7 +307,7 @@ textarea{
         <input type="hidden" name="file_path" value="'.htmlspecialchars($fileRel).'">
         <textarea name="content" id="fileContent">'.htmlspecialchars((string)$content).'</textarea>
         <div class="bar" style="margin-top:12px;">
-            <button class="btn" type="submit" id="saveBtn">Save Changes</button>
+            <button class="btn gray" type="submit" id="saveBtn">Save Changes</button>
             <span style="color:var(--muted);font-size:14px;margin-left:12px;">File: '.htmlspecialchars($fileRel).'</span>
         </div>
       </form>';
@@ -318,8 +318,8 @@ textarea{
                     <input type="hidden" name="action" value="change_date">
                     <input type="hidden" name="path" value="'.htmlspecialchars($fileRel).'">
                     <label>Set Modified Date/Time</label>
-                    <input type="datetime-local" name="new_mtime" value="'.htmlspecialchars($mtime? date('Y-m-d\TH:i', $mtime) : '').'" step="1">
-                    <button class="btn" type="submit" style="margin-left:8px">Update</button>
+                    <input type="datetime-local" name="new_mtime" value="'.htmlspecialchars($mtime? date('Y-m-d\TH:i:s', $mtime) : '').'" step="1">
+                    <button class="btn gray" type="submit" style="margin-left:8px">Update</button>
                 </form>
             </div>
           </div>';

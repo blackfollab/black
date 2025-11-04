@@ -482,10 +482,11 @@ input[type="file"]{
 .icon{margin-right:6px}
 .meta{font-size:12px;color:var(--muted)}
 .breadcrumb a{color:#3c678d;text-decoration:none}
+a{color:#3c678d;text-decoration:none}
 </style></head><body><div class="wrap">';
 
 echo fm_breadcrumb($reqPath);
-echo '<hr>'
+echo '<hr>';
 echo '<h1>Browsing: '.htmlspecialchars($reqPath === '' ? '/' : $reqPath).'</h1>';
 
 echo '<div class="toolbar">

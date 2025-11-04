@@ -552,6 +552,7 @@ a:active {
 </style></head><body><div class="wrap">';
 
 echo fm_breadcrumb($reqPath);
+echo '<hr>';
 echo '<h1>Browsing: '.htmlspecialchars($reqPath === '' ? '/' : $reqPath).'</h1>';
 
 echo '<div class="toolbar">
@@ -589,7 +590,7 @@ foreach ($listed as $name) {
     $perms = fm_perms($abs);
 
     echo '<tr><td class="name"><span class="icon">'.$icon.'</span>'.
-         '<a href="?path='.urlencode($rel).'">'.htmlspecialchars($name).'</a>'.
+         '<a href="?path='.urlencode($rel).'"><b>'.htmlspecialchars($name).'</b></a>'.
          '</td><td class="meta">'.$mtimeStr.'</td><td class="meta">'.$perms.'</td><td>';
 
     echo '<form method="post" onsubmit="return confirm(\'Delete '.htmlspecialchars($name).'?\');">

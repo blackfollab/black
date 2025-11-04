@@ -284,6 +284,15 @@ textarea{
     .breadcrumb a:link {
   color: #829bb0;
 }
+input[type="text"],
+input[type="datetime-local"],
+input[type="file"]{
+    padding:6px 8px;
+    border:1px solid #475569; /* Darker border */
+    border-radius:10px;
+    background: var(--card); /* Dark background */
+    color: var(--text); /* Light text */
+}
 
 .breadcrumb a:visited {
   color: #829bb0;
@@ -321,6 +330,8 @@ a:active {
     
     // Display save message here
     echo $saveMessage;
+
+    echo 'br';
 
     echo '<div class="bar">
             <form method="get" style="display:inline;">
@@ -655,7 +666,7 @@ function fm_breadcrumb(string $relPath): string {
     $html = '<div class="breadcrumb"><a href="?path=">ROOTT</a>';
     foreach ($parts as $p) {
         $acc .= ($acc ? '/' : '') . $p;
-        $html .= ' / <a href="?path=' . urlencode($acc) . '">' . htmlspecialchars($p) . '</a>';
+        $html .= ' / <a href="?path=' . urlencode($acc) . '"><b>' . htmlspecialchars($p) . '</b></a>';
     }
     $html .= '</div>';
     return $html;

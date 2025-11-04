@@ -482,7 +482,25 @@ input[type="file"]{
 .icon{margin-right:6px}
 .meta{font-size:12px;color:var(--muted)}
 .breadcrumb a{color:#3c678d;text-decoration:none}
-a{color:#3c678d;text-decoration:none}
+/* Unvisited link */
+a:link {
+  color: #3c678d;
+}
+
+/* Visited link */
+a:visited {
+  color: #3c678d;
+}
+
+/* Mouse over link */
+a:hover {
+  color: red;
+}
+
+/* Selected link */
+a:active {
+  color: #3c678d;
+}
 </style></head><body><div class="wrap">';
 
 echo fm_breadcrumb($reqPath);

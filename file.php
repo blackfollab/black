@@ -266,7 +266,7 @@ body{
     .btn{padding:8px 12px;border:none;border-radius:10px;background:var(--pri);color:#fff;font-weight:600;cursor:pointer}
     .btn.outline{background:transparent;color:var(--pri);border:1px solid #dbe2ea}
     .btn.danger{background:var(--danger)}
-    .btn.gray{background:#e9edf3;color:#111}
+    .btn.gray{background:#6b6b6b;color:#111}
 textarea{
     width:100%;
     height:60vh;

@@ -481,25 +481,39 @@ input[type="file"]{
 .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
 .icon{margin-right:6px}
 .meta{font-size:12px;color:var(--muted)}
-.breadcrumb a{color:#3c678d;text-decoration:none}
+.breadcrumb a:link {
+  color: #829bb0;
+}
+
+.breadcrumb a:visited {
+  color: #829bb0;
+}
+
+.breadcrumb a:hover {
+  color: #9bc0e1;
+}
+
+.breadcrumb a:active {
+  color: #9bc0e1;
+}
 /* Unvisited link */
 a:link {
-  color: #3c678d;
+  color: #829bb0;
 }
 
 /* Visited link */
 a:visited {
-  color: #3c678d;
+  color: #829bb0;
 }
 
 /* Mouse over link */
 a:hover {
-  color: red;
+  color: #9bc0e1;
 }
 
 /* Selected link */
 a:active {
-  color: #3c678d;
+  color: #9bc0e1;
 }
 </style></head><body><div class="wrap">';
 

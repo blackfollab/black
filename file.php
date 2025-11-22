@@ -1,5 +1,5 @@
 <?php
-// Start the session at the very beginning
+// Ensure the session is started at the very beginning
 session_start();
 
 // Enable all error reporting for debugging
@@ -7,15 +7,12 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 ini_set('log_errors', 1);
 
-// Set the session name for your file manager
-session_name('filemanager');
-
 // Define the root directory for file management
 $ROOT = realpath('/');
 $reqPath = isset($_GET['path']) ? trim($_GET['path'], "/") : '';
-$CURRENT = $reqPath === '' ? $ROOT : realpath($ROOT . '/' . $reqPath);
 
-// Ensure the requested path is within the allowed root directory
+// Check if the requested path is inside the allowed root directory
+$CURRENT = $reqPath === '' ? $ROOT : realpath($ROOT . '/' . $reqPath);
 if ($CURRENT === false || strpos($CURRENT, $ROOT) !== 0) {
     $CURRENT = $ROOT;
     $reqPath = '';
@@ -27,7 +24,6 @@ $_SESSION['current_path'] = $reqPath;
 /* ==========================
    POST HANDLING
    ========================== */
-   
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $action = (string)$_POST['action'];
     $targetRel = (string)($_POST['path'] ?? '');
@@ -35,6 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
     switch ($action) {
         case 'delete':
+            // Handle file/directory deletion
             if ($targetAbs && $targetAbs !== $ROOT && file_exists($targetAbs)) {
                 if (is_dir($targetAbs)) {
                     fm_delete_dir($targetAbs);
@@ -43,11 +40,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 }
             }
             $parentRel = trim(dirname($targetRel), '/');
-            $_SESSION['current_path'] = $parentRel; // Update the session path after deletion
+            $_SESSION['current_path'] = $parentRel; // Update session path after deletion
             header("Location: ?path=" . urlencode($parentRel));
             exit;
 
         case 'create_file':
+            // Handle file creation
             $name = trim((string)($_POST['name'] ?? ''));
             if ($name !== '' && !str_contains($name, '/')) {
                 $newAbs = fm_safe_target(($reqPath ? $reqPath.'/' : '').$name, true);
@@ -55,13 +53,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     @file_put_contents($newAbs, "");
                 }
             }
-            $_SESSION['current_path'] = $reqPath; // Update the session path after creation
+            $_SESSION['current_path'] = $reqPath; // Update session path after file creation
             header("Location: ?path=" . urlencode($reqPath));
             exit;
 
         case 'upload':
+            // Handle file upload
             error_log("UPLOAD STARTED");
-    
+
             if (empty($_FILES['upload']['name']) || $_FILES['upload']['error'] !== UPLOAD_ERR_OK) {
                 error_log("UPLOAD ERROR: " . ($_FILES['upload']['error'] ?? 'No file'));
                 header("Location: ?path=" . urlencode($reqPath));
@@ -71,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $filename = basename($_FILES['upload']['name']);
             $destRel = ($reqPath ? $reqPath.'/' : '') . $filename;
             $destAbs = fm_safe_target($destRel, true);
-    
+
             if (!$destAbs) {
                 error_log("UPLOAD BLOCKED: Safe target returned null");
                 header("Location: ?path=" . urlencode($reqPath));
@@ -79,7 +78,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
 
             $tempFile = $_FILES['upload']['tmp_name'];
-    
             if (!file_exists($tempFile)) {
                 error_log("UPLOAD ERROR: Temp file missing");
                 header("Location: ?path=" . urlencode($reqPath));
@@ -93,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
             if (move_uploaded_file($tempFile, $destAbs)) {
                 error_log("UPLOAD SUCCESS: $destAbs");
-                $_SESSION['current_path'] = $reqPath; // Update the session path after successful upload
+                $_SESSION['current_path'] = $reqPath; // Update session path after successful upload
             } else {
                 error_log("UPLOAD FAILED: Move operation failed");
             }
@@ -119,6 +117,7 @@ natcasesort($files);
 $listed = array_merge($dirs, $files);
 
 // Helper functions
+
 function fm_safe_target(string $rel, bool $forCreate = false): ?string {
     global $ROOT;
     
@@ -186,83 +185,83 @@ function fm_breadcrumb(string $relPath): string {
     $html .= '</div>';
     return $html;
 }
-
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <title>File Manager</title>
     <style>
-    /* Add your custom styles here */
-    :root {
-        --bg: #0f172a; 
-        --card: #1e293b; 
-        --text: #e2e8f0;
-        --pri: #3b82f6;
-        --danger: #ef4444;
-    }
+    /* Styling */
     body {
-        background: var(--bg);
-        color: var(--text);
-        padding: 24px;
-        font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial;
-    }
-    .wrap {
-        max-width: 1200px;
-        margin: 0 auto;
+        background-color: #f4f4f4;
+        font-family: Arial, sans-serif;
+        padding: 20px;
     }
     .btn {
         padding: 8px 12px;
         border: none;
-        border-radius: 10px;
-        background: var(--pri);
-        color: #fff;
-        font-weight: 600;
+        background-color: #3b82f6;
+        color: white;
+        font-weight: bold;
         cursor: pointer;
+        border-radius: 5px;
     }
     .btn.danger {
-        background: var(--danger);
+        background-color: #ef4444;
     }
-    /* Add other styling for file list and forms */
+    .breadcrumb {
+        font-size: 14px;
+    }
+    table {
+        width: 100%;
+        margin-top: 20px;
+        border-collapse: collapse;
+    }
+    th, td {
+        padding: 8px;
+        text-align: left;
+        border: 1px solid #ccc;
+    }
     </style>
 </head>
 <body>
-    <div class="wrap">
-        <?php echo fm_breadcrumb($reqPath); ?>
+    <h1>File Manager</h1>
 
-        <!-- File manager actions (Create, Upload, etc.) -->
-        <div>
-            <form method="post" enctype="multipart/form-data">
-                <input type="hidden" name="action" value="upload">
-                <input type="file" name="upload" required>
-                <button class="btn" type="submit">Upload</button>
-            </form>
-        </div>
+    <!-- Breadcrumb Navigation -->
+    <?php echo fm_breadcrumb($reqPath); ?>
 
-        <table>
-            <thead>
+    <!-- File Upload -->
+    <form method="post" enctype="multipart/form-data">
+        <input type="hidden" name="action" value="upload">
+        <input type="file" name="upload" required>
+        <button class="btn" type="submit">Upload</button>
+    </form>
+
+    <!-- File Listing -->
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($listed as $name): ?>
                 <tr>
-                    <th>Name</th>
-                    <th>Actions</th>
+                    <td><b><?php echo htmlspecialchars($name); ?></b></td>
+                    <td>
+                        <!-- Delete file -->
+                        <form method="post" onsubmit="return confirm('Delete this file?');">
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="path" value="<?php echo htmlspecialchars($reqPath . '/' . $name); ?>">
+                            <button class="btn danger" type="submit">Delete</button>
+                        </form>
+                    </td>
                 </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($listed as $name): ?>
-                    <tr>
-                        <td><b><?php echo htmlspecialchars($name); ?></b></td>
-                        <td>
-                            <!-- Delete file -->
-                            <form method="post" onsubmit="return confirm('Delete this file?');">
-                                <input type="hidden" name="action" value="delete">
-                                <input type="hidden" name="path" value="<?php echo htmlspecialchars($reqPath . '/' . $name); ?>">
-                                <button class="btn danger" type="submit">Delete</button>
-                            </form>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-    </div>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
 </body>
 </html>

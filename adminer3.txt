@@ -5,6 +5,19 @@ if (ob_get_level() == 0) ob_start();
 if (session_status() === PHP_SESSION_NONE) @session_start();
 @ini_set('memory_limit', '512M');
 @ini_set('max_execution_time', 600);
+define('DBM_SECRET', 'change-this-to-a-random-string-' . md5(__FILE__));
+
+$theme = <<<'CSS'
+:root{
+  --bg:#0a121d; --panel:#111c2e; --panel2:#16243a; --input:#0c1521;
+  --border:#22324a; --border2:#2c425f;
+  --text:#a6b6c9; --head:#c6d2e2; --muted:#74879f; --th:#bdcadd;
+  --link:#6695c4; --link-h:#82a8d2;
+  --accent:#2a5298; --accent-h:#34629f; --row:#15233a; --active:#1e3a5c;
+  --ok-bg:#10301c; --ok-fg:#7fcf99; --ok-bd:#235537;
+  --err-bg:#311619; --err-fg:#e09aa2; --err-bd:#693039;
+}
+CSS;
 
 // ==================== AUTHENTICATION ====================
 if (isset($_GET['logout'])) {
@@ -23,7 +36,7 @@ if (isset($_SESSION['db_auth'])) {
 } elseif (isset($_COOKIE['db_persist'])) {
     $data = @json_decode(base64_decode($_COOKIE['db_persist']), true);
     if ($data && isset($data['config'], $data['hash'])) {
-        $hash = hash_hmac('sha256', json_encode($data['config']), 'secret_2025');
+        $hash = hash_hmac('sha256', json_encode($data['config']), DBM_SECRET);
         if (hash_equals($hash, $data['hash'])) {
             $authenticated = true;
             $db_config = $data['config'];
@@ -45,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
         $_SESSION['db_auth'] = $db_config;
         
         if (isset($_POST['permanent'])) {
-            $cookie = ['config' => $db_config, 'hash' => hash_hmac('sha256', json_encode($db_config), 'secret_2025')];
+            $cookie = ['config' => $db_config, 'hash' => hash_hmac('sha256', json_encode($db_config), DBM_SECRET)];
             @setcookie('db_persist', base64_encode(json_encode($cookie)), time() + 315360000, '/');
         }
         
@@ -68,23 +81,27 @@ if (!$authenticated) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Login - Database Manager</title>
 <style>
+<?= $theme ?>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font: 14px Verdana, Arial, sans-serif; background: #2c5282; }
-#login { max-width: 400px; margin: 100px auto; background: #fff; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
-#heading { background: linear-gradient(135deg, #1e3c72, #2a5298); color: #fff; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
-h1 { font-size: 24px; margin-bottom: 5px; }
-.subtitle { font-size: 13px; opacity: 0.9; }
-form { padding: 30px; }
+body { font: 13px Verdana, Arial, Helvetica, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+#login { max-width: 400px; margin: 90px auto; background: var(--panel); border-radius: 10px; box-shadow: 0 14px 44px rgba(0,0,0,0.55); overflow: hidden; }
+#heading { background: linear-gradient(135deg, #142133, #224071); color: var(--head); padding: 26px 30px; text-align: center; }
+h1 { font-size: 21px; margin-bottom: 4px; font-weight: bold; }
+.subtitle { font-size: 12px; color: #9fb2cb; }
+form { padding: 24px 28px 28px; }
 table { width: 100%; }
-th { text-align: right; padding: 8px 10px 8px 0; font-weight: normal; color: #555; }
+th { text-align: right; padding: 8px 10px 8px 0; font-weight: normal; color: var(--muted); white-space: nowrap; }
 td { padding: 8px 0; }
-input[type="text"], input[type="password"] { width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 4px; font-size: 14px; }
-input[type="text"]:focus, input[type="password"]:focus { outline: none; border-color: #2a5298; }
-input[type="submit"] { width: 100%; padding: 12px; background: linear-gradient(135deg, #1e3c72, #2a5298); color: #fff; border: none; border-radius: 4px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 10px; }
-input[type="submit"]:hover { background: linear-gradient(135deg, #163254, #1e3c72); }
-.error { background: #fee; color: #c33; padding: 12px; border-radius: 4px; margin-bottom: 15px; border-left: 4px solid #c33; }
-label { display: flex; align-items: center; margin-top: 10px; cursor: pointer; }
-input[type="checkbox"] { margin-right: 8px; }
+input[type="text"], input[type="password"], input:not([type]) { width: 100%; padding: 9px; border: 1px solid var(--border); border-radius: 5px; background: var(--input); color: var(--text); font-size: 13px; }
+input[type="text"]:focus, input[type="password"]:focus, input:not([type]):focus { outline: none; border-color: var(--link); }
+input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus { -webkit-text-fill-color: var(--text); -webkit-box-shadow: 0 0 0 1000px var(--input) inset; caret-color: var(--text); }
+input[type="submit"] { width: 100%; padding: 11px; background: linear-gradient(135deg, #2a5298, #1e3c72); color: #fff; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 14px; }
+input[type="submit"]:hover { background: linear-gradient(135deg, #316ab3, #24487f); }
+.error { background: var(--err-bg); color: var(--err-fg); padding: 10px; border: 1px solid var(--err-bd); border-radius: 5px; margin-bottom: 14px; }
+label { display: flex; align-items: center; margin-top: 12px; cursor: pointer; color: var(--muted); }
+input[type="checkbox"] { appearance: none; -webkit-appearance: none; -moz-appearance: none; width: 15px; height: 15px; border: 1px solid var(--border2); border-radius: 3px; background: var(--input); cursor: pointer; position: relative; margin-right: 8px; flex-shrink: 0; }
+input[type="checkbox"]:checked { background: var(--accent); border-color: var(--accent-h); }
+input[type="checkbox"]:checked::after { content: ""; position: absolute; left: 4px; top: 1px; width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
 </style>
 </head>
 <body>
@@ -94,11 +111,11 @@ input[type="checkbox"] { margin-right: 8px; }
 <?php if (isset($error)): ?><div class="error"><?= htmlspecialchars($error) ?></div><?php endif; ?>
 <table>
 <tr><th>Server:<td><input name="server" value="<?= htmlspecialchars($_POST['server'] ?? 'localhost') ?>" autocapitalize="off">
+<tr><th>Database:<td><input name="database" value="<?= htmlspecialchars($_POST['database'] ?? '') ?>" autocapitalize="off">
 <tr><th>Username:<td><input name="username" value="<?= htmlspecialchars($_POST['username'] ?? '') ?>" autocapitalize="off">
 <tr><th>Password:<td><input type="password" name="password">
-<tr><th>Database:<td><input name="database" value="<?= htmlspecialchars($_POST['database'] ?? '') ?>" autocapitalize="off">
 </table>
-<label><input type="checkbox" name="permanent"> Permanent login (10 years)</label>
+<label><input type="checkbox" name="permanent" <?= (!isset($_POST['login']) || isset($_POST['permanent'])) ? 'checked' : '' ?>> Permanent login (10 years)</label>
 <input type="submit" name="login" value="Login">
 </form>
 </div>
@@ -121,11 +138,28 @@ try {
 // ==================== HELPER FUNCTIONS ====================
 function h($s) { return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 function q($s) { global $pdo; return $pdo->quote($s); }
-function redirect($msg = '', $type = 'success') {
+function redirect($msg = '', $type = 'success', $query = null) {
     $_SESSION['msg'] = $msg;
     $_SESSION['msg_type'] = $type;
-    header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?') . ($_GET['table'] ?? '') . (isset($_GET['table']) ? '?table=' . urlencode($_GET['table']) : ''));
+    $base = strtok($_SERVER['REQUEST_URI'], '?');           // path only, e.g. /downad.php
+    if ($query === null) {
+        $query = (isset($_GET['table']) && $_GET['table'] !== '') ? '?table=' . urlencode($_GET['table']) : '';
+    }
+    header('Location: ' . $base . $query);
     exit;
+}
+// Build a browse URL for the current table, keeping sort/search/page intact.
+// Pass key => null to drop a parameter (e.g. resetting page when re-sorting).
+function browse_url($params = []) {
+    global $table;
+    $qs = ['table' => $table];
+    foreach (['order', 'desc', 'q', 'per_page', 'page'] as $k) {
+        if (isset($_GET[$k]) && $_GET[$k] !== '') $qs[$k] = $_GET[$k];
+    }
+    foreach ($params as $k => $v) {
+        if ($v === null) unset($qs[$k]); else $qs[$k] = $v;
+    }
+    return '?' . http_build_query($qs);
 }
 
 // ==================== GET PARAMETERS ====================
@@ -133,7 +167,9 @@ $table = $_GET['table'] ?? '';
 $view = $_GET['view'] ?? '';
 $action = $_GET['select'] ?? $_GET['edit'] ?? $_GET['insert'] ?? $_GET['create'] ?? $_GET['alter'] ?? $_GET['triggers'] ?? $_GET['sql'] ?? '';
 $page = max(1, intval($_GET['page'] ?? 1));
-$limit = 30;
+$per_page_options = [10, 30, 50, 100, 200, 500];
+$limit = (int)($_GET['per_page'] ?? 30);
+if (!in_array($limit, $per_page_options, true)) $limit = 30;  // whitelist keeps LIMIT injection-safe
 $offset = ($page - 1) * $limit;
 
 // ==================== GET DATABASE INFO ====================
@@ -207,7 +243,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $ids = $_POST['check'] ?? [];
             $pk = $_POST['pk'];
             if ($ids) {
-                $placeholders = implode(',', array_map('Adminer\q', $ids));
+                $placeholders = implode(',', array_map('q', $ids));
                 $pdo->exec("DELETE FROM `$table` WHERE `$pk` IN ($placeholders)");
                 redirect(count($ids) . ' record(s) deleted');
             }
@@ -223,7 +259,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         elseif (isset($_POST['drop_table']) && $table) {
             $pdo->exec("DROP TABLE `$table`");
             $table = '';
-            redirect('Table dropped');
+            redirect('Table dropped', 'success', '');  // back to overview, table no longer exists
         }
         
         // CREATE TABLE
@@ -437,7 +473,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         // CHECK TABLE
-        elseif (isset($_POST['check']) && $table) {
+        elseif (isset($_POST['check_table']) && $table) {
             $result = $pdo->query("CHECK TABLE `$table`")->fetchAll();
             $msg = '';
             foreach ($result as $r) $msg .= "{$r['Table']}: {$r['Msg_text']}<br>";
@@ -460,21 +496,39 @@ $total = 0;
 $pk = 'id';
 $indexes = [];
 $table_status = null;
+$search = trim($_GET['q'] ?? '');
+$filtered_total = 0;
 
 if ($table && in_array($table, $table_list)) {
     $columns = $pdo->query("SHOW FULL COLUMNS FROM `$table`")->fetchAll();
     $total = $pdo->query("SELECT COUNT(*) FROM `$table`")->fetchColumn();
-    
+
     foreach ($columns as $col) {
         if ($col['Key'] === 'PRI') {
             $pk = $col['Field'];
             break;
         }
     }
-    
+
+    // Search: match the term against every column with LIKE (no dependencies).
+    $where = '';
+    if ($search !== '') {
+        $like = q('%' . $search . '%');
+        $conds = [];
+        foreach ($columns as $col) {
+            $conds[] = "`{$col['Field']}` LIKE $like";
+        }
+        if ($conds) $where = ' WHERE ' . implode(' OR ', $conds);
+    }
+    $filtered_total = $where ? $pdo->query("SELECT COUNT(*) FROM `$table`$where")->fetchColumn() : $total;
+
     if (isset($_GET['select']) || (!isset($_GET['alter']) && !isset($_GET['insert']) && !isset($_GET['create']))) {
-        $order = isset($_GET['order']) ? " ORDER BY `{$_GET['order']}`" . (isset($_GET['desc']) ? ' DESC' : ' ASC') : '';
-        $data = $pdo->query("SELECT * FROM `$table`$order LIMIT $limit OFFSET $offset")->fetchAll();
+        // Only allow ordering by a real column name (blocks ?order= SQL injection).
+        $valid_cols = array_column($columns, 'Field');
+        $order = (isset($_GET['order']) && in_array($_GET['order'], $valid_cols, true))
+            ? " ORDER BY `{$_GET['order']}`" . (isset($_GET['desc']) ? ' DESC' : ' ASC')
+            : '';
+        $data = $pdo->query("SELECT * FROM `$table`$where$order LIMIT $limit OFFSET $offset")->fetchAll();
     }
     
     if (isset($_GET['edit']) && isset($_GET['id'])) {
@@ -498,100 +552,119 @@ if (ob_get_level()) ob_clean();
     <link rel="icon" type="image/png" href="https://www.adminer.org/static/images/favicon.png">
 
 <style>
+<?= $theme ?>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font: 14px Verdana, Arial, sans-serif; background: #f8f9fa; color: #333; }
+body { font: 13px/1.45 Verdana, Arial, Helvetica, sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; color: var(--link-h); }
 
-#heading { background: linear-gradient(135deg, #1e3c72, #2a5298); color: #fff; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-#heading h1 { font-size: 18px; font-weight: normal; }
-#heading a { color: #fff; text-decoration: none; padding: 6px 15px; background: rgba(255,255,255,0.2); border-radius: 4px; font-size: 13px; }
-#heading a:hover { background: rgba(255,255,255,0.3); }
+#heading { background: var(--panel2); border-bottom: 1px solid var(--border); padding: 8px 14px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+#heading h1 { font-size: 15px; font-weight: bold; color: var(--head); }
+#heading > div a { color: var(--link); text-decoration: none; padding: 4px 10px; background: var(--panel); border: 1px solid var(--border2); border-radius: 3px; font-size: 12px; margin-left: 4px; }
+#heading > div a:hover { background: var(--row); text-decoration: none; }
 
-#content { display: flex; min-height: calc(100vh - 50px); }
+#content { display: flex; flex: 1; min-height: 0; }
 
-#menu { width: 250px; background: #fff; border-right: 1px solid #ddd; padding: 15px 0; overflow-y: auto; flex-shrink: 0; }
-#menu h3 { font-size: 11px; text-transform: uppercase; color: #999; padding: 8px 15px; margin-top: 15px; font-weight: 600; }
-#menu h3:first-child { margin-top: 0; }
-#menu a { display: block; padding: 8px 15px; color: #333; text-decoration: none; transition: all 0.2s; font-size: 13px; }
-#menu a:hover { background: #f0f4f8; padding-left: 20px; }
-#menu a.active { background: #2a5298; color: #fff; font-weight: 600; }
-#menu .count { float: right; background: #e0e0e0; color: #666; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+#menu { width: 230px; background: var(--panel); border-right: 1px solid var(--border); padding: 8px 0; overflow-y: auto; flex-shrink: 0; }
+#menu h3 { font-size: 11px; text-transform: uppercase; color: var(--muted); padding: 10px 14px 4px; margin-top: 6px; font-weight: bold; border-top: 1px solid var(--border); }
+#menu h3:first-child { margin-top: 0; border-top: none; }
+#menu a { display: block; padding: 4px 14px; color: var(--text); text-decoration: none; font-size: 13px; }
+#menu a:hover { background: var(--row); text-decoration: none; color: var(--link-h); }
+#menu a.active { background: var(--active); color: var(--head); font-weight: bold; box-shadow: inset 3px 0 0 var(--accent); }
+#menu .count { float: right; background: var(--border); color: var(--th); padding: 0 7px; border-radius: 8px; font-size: 11px; }
 
-#main { flex: 1; padding: 20px; overflow-y: auto; max-width: calc(100vw - 250px); }
+#main { flex: 1; padding: 0 16px 10px; overflow: auto; min-height: 0; max-width: calc(100vw - 230px); }
+#main > :first-child { margin-top: 10px; }
 
-.message { padding: 12px 15px; border-radius: 4px; margin-bottom: 15px; }
-.message.success { background: #d4edda; color: #155724; border-left: 4px solid #28a745; }
-.message.error { background: #f8d7da; color: #721c24; border-left: 4px solid #dc3545; }
+.message { padding: 8px 12px; border: 1px solid; border-radius: 3px; margin-bottom: 12px; }
+.message.success { background: var(--ok-bg); color: var(--ok-fg); border-color: var(--ok-bd); }
+.message.error { background: var(--err-bg); color: var(--err-fg); border-color: var(--err-bd); }
 
-table { width: 100%; border-collapse: collapse; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; }
-thead { background: #2a5298; color: #fff; }
-th { padding: 12px; text-align: left; font-weight: 600; font-size: 13px; white-space: nowrap; }
-th a { color: #fff; text-decoration: none; }
+table { border-collapse: collapse; background: var(--panel); margin-bottom: 16px; border: 1px solid var(--border); }
+thead { background: var(--panel2); }
+th { padding: 5px 9px; text-align: left; font-weight: bold; font-size: 12px; white-space: nowrap; border: 1px solid var(--border); color: var(--th); }
+thead th { position: sticky; top: 0; z-index: 2; background: var(--panel2); box-shadow: inset 0 -1px 0 var(--border); }
+th a { color: var(--link); text-decoration: none; }
 th a:hover { text-decoration: underline; }
-td { padding: 10px 12px; border-bottom: 1px solid #e9ecef; font-size: 13px; }
-tbody tr:hover { background: #f8f9fa; }
-tbody tr:last-child td { border-bottom: none; }
+td { padding: 3px 9px; border: 1px solid var(--border); font-size: 12px; color: var(--text); }
+tbody tr:hover { background: var(--row); }
 
-.number { text-align: right; font-family: 'Courier New', monospace; }
-.null { color: #999; font-style: italic; }
-.blob { color: #999; font-style: italic; }
+.number { text-align: right; }
+.null { color: var(--muted); font-style: italic; }
+.blob { color: var(--muted); font-style: italic; }
 
-h2 { font-size: 20px; margin-bottom: 15px; color: #2a5298; padding-bottom: 10px; border-bottom: 2px solid #e9ecef; }
+h2 { font-size: 16px; font-weight: normal; margin-bottom: 8px; color: var(--head); padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+h3 { font-size: 14px; margin-bottom: 4px; color: var(--head); }
+h4 { font-size: 13px; color: var(--head); }
 
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }
-.stat { background: linear-gradient(135deg, #1e3c72, #2a5298); color: #fff; padding: 20px; border-radius: 6px; }
-.stat-value { font-size: 32px; font-weight: 700; margin-bottom: 5px; }
-.stat-label { font-size: 13px; opacity: 0.9; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.stat { background: var(--panel); border: 1px solid var(--border); color: var(--text); padding: 12px 14px; border-radius: 4px; }
+.stat-value { font-size: 26px; font-weight: bold; color: var(--link); margin-bottom: 2px; }
+.stat-label { font-size: 12px; color: var(--muted); }
 
-.actions { margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 8px; }
-.btn { display: inline-block; padding: 8px 16px; background: #2a5298; color: #fff; text-decoration: none; border-radius: 4px; font-size: 13px; border: none; cursor: pointer; }
-.btn:hover { background: #1e3c72; }
-.btn-success { background: #28a745; }
-.btn-success:hover { background: #218838; }
-.btn-danger { background: #dc3545; }
-.btn-danger:hover { background: #c82333; }
-.btn-warning { background: #ffc107; color: #000; }
-.btn-warning:hover { background: #e0a800; }
-.btn-secondary { background: #6c757d; }
-.btn-secondary:hover { background: #5a6268; }
-.btn-small { padding: 4px 8px; font-size: 12px; }
+.actions { margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.btn { display: inline-block; padding: 5px 12px; background: var(--panel2); color: var(--text); text-decoration: none; border: 1px solid var(--border2); border-radius: 3px; font-size: 12px; cursor: pointer; line-height: 1.4; }
+.btn:hover { background: var(--row); text-decoration: none; color: var(--head); }
+.btn-primary { background: var(--accent); border-color: var(--accent-h); color: #fff; }
+.btn-primary:hover { background: var(--accent-h); color: #fff; }
+.btn-success { background: #1d5538; border-color: #2c7049; color: #cdeedb; }
+.btn-success:hover { background: #246646; }
+.btn-danger { background: #6f2730; border-color: #943a44; color: #f0cdd1; }
+.btn-danger:hover { background: #843039; }
+.btn-warning { background: #634910; border-color: #8a6a18; color: #f2dca8; }
+.btn-warning:hover { background: #745717; }
+.btn-secondary { background: #2c3e57; border-color: #3c5172; color: var(--text); }
+.btn-secondary:hover { background: #34496a; }
+.btn-small { padding: 2px 8px; font-size: 11px; }
 
-textarea { width: 100%; min-height: 150px; padding: 10px; border: 2px solid #ddd; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 13px; resize: vertical; }
-textarea:focus { outline: none; border-color: #2a5298; }
+textarea, input[type="text"], input[type="number"], input[type="password"], input:not([type]), select { border: 1px solid var(--border); border-radius: 3px; font-size: 13px; background-color: var(--input); color: var(--text); }
+textarea { width: 100%; min-height: 130px; padding: 6px; font-family: 'Courier New', monospace; resize: vertical; }
+input[type="text"], input[type="number"], input[type="password"], input:not([type]) { padding: 5px 7px; }
+select { padding: 5px 24px 5px 7px; appearance: none; -webkit-appearance: none; -moz-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%237ba6d0' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; }
+textarea:focus, input:focus, select:focus { outline: none; border-color: var(--link); }
+select option { background: var(--panel2); color: var(--text); }
+input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus, textarea:-webkit-autofill { -webkit-text-fill-color: var(--text); -webkit-box-shadow: 0 0 0 1000px var(--input) inset; caret-color: var(--text); }
 
-input[type="text"], input[type="number"], select { padding: 8px; border: 2px solid #ddd; border-radius: 4px; font-size: 13px; }
-input[type="text"]:focus, input[type="number"]:focus, select:focus { outline: none; border-color: #2a5298; }
+.form-group { margin-bottom: 12px; }
+.form-group label { display: block; margin-bottom: 4px; font-weight: bold; color: var(--th); }
 
-.form-group { margin-bottom: 15px; }
-.form-group label { display: block; margin-bottom: 5px; font-weight: 600; color: #555; }
+.pagination { margin-top: 16px; }
+.pagination a { display: inline-block; padding: 4px 9px; margin: 0 1px; background: var(--panel2); border: 1px solid var(--border2); border-radius: 3px; color: var(--link); text-decoration: none; }
+.pagination a:hover { background: var(--row); text-decoration: none; }
+.pagination .current { background: var(--accent); color: #fff; border-color: var(--accent-h); }
+.pagination .ellipsis { display: inline-block; padding: 4px 3px; color: var(--muted); }
+.pagination .page-info { display: inline-block; margin-left: 12px; color: var(--muted); font-size: 12px; }
+.pagination .per-page-form { display: inline-block; margin-left: 12px; }
+.pagination .per-page-form label { color: var(--muted); font-size: 12px; }
+.pagination .per-page-form select { padding: 3px 22px 3px 6px; font-size: 12px; }
 
-.pagination { margin-top: 20px; text-align: center; }
-.pagination a { display: inline-block; padding: 6px 12px; margin: 0 2px; background: #fff; border: 1px solid #ddd; border-radius: 4px; color: #2a5298; text-decoration: none; }
-.pagination a:hover { background: #f0f4f8; }
-.pagination .current { background: #2a5298; color: #fff; border-color: #2a5298; }
+.trigger, .routine, .event { background: var(--panel); padding: 12px; margin-bottom: 8px; border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 4px; }
+.trigger-name, .routine-name, .event-name { font-weight: bold; color: var(--link-h); margin-bottom: 4px; }
+.trigger-meta, .routine-meta, .event-meta { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.trigger-body, .routine-body, .event-body { background: var(--input); padding: 8px; border: 1px solid var(--border); border-radius: 3px; font-family: 'Courier New', monospace; font-size: 12px; overflow-x: auto; white-space: pre-wrap; color: var(--text); }
 
-.trigger, .routine, .event { background: #f8f9fa; padding: 15px; margin-bottom: 10px; border-left: 3px solid #2a5298; border-radius: 4px; }
-.trigger-name, .routine-name, .event-name { font-weight: 600; color: #2a5298; margin-bottom: 5px; }
-.trigger-meta, .routine-meta, .event-meta { font-size: 12px; color: #666; margin-bottom: 8px; }
-.trigger-body, .routine-body, .event-body { background: #fff; padding: 10px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px; overflow-x: auto; white-space: pre-wrap; }
-
-.column-editor { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 4px; border: 1px solid #ddd; }
+.column-editor { background: var(--panel); padding: 12px; margin: 8px 0; border-radius: 4px; border: 1px solid var(--border); }
 .column-grid { display: grid; grid-template-columns: 2fr 1.5fr 1fr 1fr 1fr 1fr 2fr 0.5fr; gap: 8px; align-items: end; margin-bottom: 10px; }
-.column-grid input, .column-grid select { padding: 6px; }
+.column-grid input, .column-grid select { padding: 4px; }
+.column-grid select { padding-right: 22px; }
 
-.info-box { background: #e7f3ff; border-left: 4px solid #2196F3; padding: 12px; margin-bottom: 15px; border-radius: 4px; }
+.info-box { background: var(--panel2); border: 1px solid var(--border); border-left: 3px solid var(--accent); padding: 6px 12px; margin-bottom: 8px; border-radius: 4px; color: var(--text); }
 
-.tab-nav { display: flex; gap: 5px; margin-bottom: 15px; border-bottom: 2px solid #e9ecef; }
-.tab-nav a { padding: 10px 20px; text-decoration: none; color: #555; border-bottom: 3px solid transparent; margin-bottom: -2px; }
-.tab-nav a:hover { color: #2a5298; }
-.tab-nav a.active { color: #2a5298; border-bottom-color: #2a5298; font-weight: 600; }
+.tab-nav { display: flex; gap: 3px; margin-bottom: 14px; border-bottom: 1px solid var(--border); }
+.tab-nav a { padding: 7px 16px; text-decoration: none; color: var(--link); border: 1px solid transparent; border-bottom: none; margin-bottom: -1px; border-radius: 4px 4px 0 0; }
+.tab-nav a:hover { background: var(--row); text-decoration: none; }
+.tab-nav a.active { color: var(--head); background: var(--bg); border-color: var(--border); border-bottom-color: var(--bg); font-weight: bold; }
 
-input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+input[type="checkbox"] { appearance: none; -webkit-appearance: none; -moz-appearance: none; width: 15px; height: 15px; border: 1px solid var(--border2); border-radius: 3px; background: var(--input); cursor: pointer; vertical-align: middle; position: relative; flex-shrink: 0; }
+input[type="checkbox"]:hover { border-color: var(--link); }
+input[type="checkbox"]:checked { background: var(--accent); border-color: var(--accent-h); }
+input[type="checkbox"]:checked::after { content: ""; position: absolute; left: 4px; top: 1px; width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
 
-.overflow { overflow-x: auto; }
+.overflow { overflow: visible; }
 
 @media (max-width: 768px) {
     #content { flex-direction: column; }
-    #menu { width: 100%; border-right: none; border-bottom: 1px solid #ddd; }
+    #menu { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
     #main { max-width: 100%; }
     .column-grid { grid-template-columns: 1fr; }
 }
@@ -870,7 +943,7 @@ input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
                 <button onclick="showTriggerForm()" class="btn btn-success">+ Create Trigger</button>
             </div>
             
-            <div id="trigger-form" style="display:none; background: #f8f9fa; padding: 20px; border-radius: 6px; margin-bottom: 20px;">
+            <div id="trigger-form" style="display:none; background: var(--panel); border: 1px solid var(--border); padding: 20px; border-radius: 4px; margin-bottom: 20px;">
                 <h3>Create New Trigger</h3>
                 <form method="post">
                     <div class="form-group">
@@ -943,7 +1016,7 @@ input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
                 <button onclick="showProcForm()" class="btn btn-success">+ Create Procedure</button>
             </div>
             
-            <div id="proc-form" style="display:none; background: #f8f9fa; padding: 20px; border-radius: 6px; margin-bottom: 20px;">
+            <div id="proc-form" style="display:none; background: var(--panel); border: 1px solid var(--border); padding: 20px; border-radius: 4px; margin-bottom: 20px;">
                 <h3>Create New Procedure</h3>
                 <form method="post">
                     <div class="form-group">
@@ -992,7 +1065,7 @@ input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
                 <button onclick="showFuncForm()" class="btn btn-success">+ Create Function</button>
             </div>
             
-            <div id="func-form" style="display:none; background: #f8f9fa; padding: 20px; border-radius: 6px; margin-bottom: 20px;">
+            <div id="func-form" style="display:none; background: var(--panel); border: 1px solid var(--border); padding: 20px; border-radius: 4px; margin-bottom: 20px;">
                 <h3>Create New Function</h3>
                 <form method="post">
                     <div class="form-group">
@@ -1045,7 +1118,7 @@ input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
                 <button onclick="showEventForm()" class="btn btn-success">+ Create Event</button>
             </div>
             
-            <div id="event-form" style="display:none; background: #f8f9fa; padding: 20px; border-radius: 6px; margin-bottom: 20px;">
+            <div id="event-form" style="display:none; background: var(--panel); border: 1px solid var(--border); padding: 20px; border-radius: 4px; margin-bottom: 20px;">
                 <h3>Create New Event</h3>
                 <form method="post">
                     <div class="form-group">
@@ -1186,7 +1259,7 @@ input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
                 <?php endif; ?>
                 
                 <h4 style="margin: 15px 0 10px;">Create Index</h4>
-                <form method="post" style="background: #f8f9fa; padding: 15px; border-radius: 4px;">
+                <form method="post" style="background: var(--panel); border: 1px solid var(--border); padding: 15px; border-radius: 4px;">
                     <div style="display: grid; grid-template-columns: 1fr 1fr 2fr auto; gap: 10px; align-items: end;">
                         <div>
                             <label>Index Name:</label>
@@ -1281,8 +1354,8 @@ input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
             <?php else: ?>
                 <!-- BROWSE PAGE -->
                 <div class="info-box">
-                    <strong>Rows:</strong> <?= number_format($total) ?> | 
-                    <strong>Engine:</strong> <?= h($table_status['Engine']) ?> | 
+                    <strong>Rows:</strong> <?= number_format($total) ?><?php if ($search !== ''): ?> <span style="color:#7db4ef;">(<?= number_format($filtered_total) ?> matching “<?= h($search) ?>”)</span><?php endif; ?> |
+                    <strong>Engine:</strong> <?= h($table_status['Engine']) ?> |
                     <strong>Collation:</strong> <?= h($table_status['Collation']) ?> | 
                     <strong>Size:</strong> <?= h($table_status['Data_length'] + $table_status['Index_length']) ?> bytes
                 </div>
@@ -1292,13 +1365,23 @@ input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
                     <form method="post" style="display:inline;"><button type="submit" name="export" class="btn btn-primary">Export SQL</button></form>
                     <form method="post" style="display:inline;" onsubmit="return confirm('Optimize table?')"><button type="submit" name="optimize" class="btn btn-warning">Optimize</button></form>
                     <form method="post" style="display:inline;" onsubmit="return confirm('Repair table?')"><button type="submit" name="repair" class="btn btn-warning">Repair</button></form>
-                    <form method="post" style="display:inline;" onsubmit="return confirm('Check table?')"><button type="submit" name="check" class="btn btn-secondary">Check</button></form>
+                    <form method="post" style="display:inline;" onsubmit="return confirm('Check table?')"><button type="submit" name="check_table" class="btn btn-secondary">Check</button></form>
                     <form method="post" style="display:inline;" onsubmit="return confirm('TRUNCATE table? All data will be lost!')"><button type="submit" name="truncate" class="btn btn-danger">Truncate</button></form>
                     <form method="post" style="display:inline;" onsubmit="return confirm('DROP table? This cannot be undone!')"><button type="submit" name="drop_table" class="btn btn-danger">Drop Table</button></form>
                 </div>
                 
+                <form method="get" style="display:flex; gap:8px; align-items:center; margin-bottom:10px; flex-wrap:wrap;">
+                    <input type="hidden" name="table" value="<?= h($table) ?>">
+                    <?php if (isset($_GET['order'])): ?><input type="hidden" name="order" value="<?= h($_GET['order']) ?>"><?php endif; ?>
+                    <?php if (isset($_GET['desc'])): ?><input type="hidden" name="desc" value="1"><?php endif; ?>
+                    <input type="hidden" name="per_page" value="<?= $limit ?>">
+                    <input type="text" name="q" value="<?= h($search) ?>" placeholder="Search all columns…" style="flex:1; min-width:200px;">
+                    <button type="submit" class="btn">🔍 Search</button>
+                    <?php if ($search !== ''): ?><a href="<?= h(browse_url(['q' => null, 'page' => null])) ?>" class="btn btn-secondary">Clear</a><?php endif; ?>
+                </form>
+
                 <?php if ($data): ?>
-                <form method="post" id="browse-form">
+                <form method="post" id="browse-form" onsubmit="return confirm('Delete the selected record(s)? This cannot be undone.')">
                     <input type="hidden" name="pk" value="<?= h($pk) ?>">
                     <div class="overflow">
                         <table>
@@ -1307,7 +1390,13 @@ input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
                                     <th><input type="checkbox" id="check-all" onclick="toggleAll(this)"></th>
                                     <?php foreach ($columns as $col): ?>
                                     <th>
-                                        <a href="?table=<?= urlencode($table) ?>&order=<?= urlencode($col['Field']) ?><?= isset($_GET['order']) && $_GET['order'] === $col['Field'] && !isset($_GET['desc']) ? '&desc=1' : '' ?>">
+                                        <?php
+                                        $sorted_asc = isset($_GET['order']) && $_GET['order'] === $col['Field'] && !isset($_GET['desc']);
+                                        $sort_href = $sorted_asc
+                                            ? browse_url(['order' => $col['Field'], 'desc' => 1, 'page' => null])
+                                            : browse_url(['order' => $col['Field'], 'desc' => null, 'page' => null]);
+                                        ?>
+                                        <a href="<?= h($sort_href) ?>">
                                             <?= h($col['Field']) ?>
                                             <?php if (isset($_GET['order']) && $_GET['order'] === $col['Field']): ?>
                                                 <?= isset($_GET['desc']) ? '↓' : '↑' ?>
@@ -1336,8 +1425,9 @@ input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
                                         <?php endif; ?>
                                     </td>
                                     <?php endforeach; ?>
-                                    <td>
+                                    <td style="white-space:nowrap;">
                                         <a href="?table=<?= urlencode($table) ?>&edit=1&id=<?= urlencode($row[$pk]) ?>" class="btn btn-primary btn-small">Edit</a>
+                                        <button type="button" class="btn btn-danger btn-small js-del" data-id="<?= h($row[$pk]) ?>">Delete</button>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -1345,39 +1435,77 @@ input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
                         </table>
                     </div>
                     <div style="margin-top: 15px;">
-                        <button type="submit" name="delete" class="btn btn-danger" onclick="return confirm('Delete selected records?')">Delete Selected</button>
+                        <button type="submit" id="del-btn" name="delete" class="btn btn-danger">Delete Selected</button>
                     </div>
                 </form>
                 
-                <?php 
-                $total_pages = ceil($total / $limit);
-                if ($total_pages > 1): 
-                ?>
+                <?php $total_pages = (int)ceil($filtered_total / $limit); ?>
                 <div class="pagination">
-                    <?php if ($page > 1): ?>
-                    <a href="?table=<?= urlencode($table) ?>&page=<?= $page - 1 ?>">« Previous</a>
+                    <?php if ($total_pages > 1):
+                        $win = 2;                                  // page numbers shown each side of current
+                        $start = max(1, $page - $win);
+                        $end = min($total_pages, $page + $win);
+                    ?>
+                        <?php if ($page > 1): ?>
+                        <a href="<?= h(browse_url(['page' => 1])) ?>" title="First page">« First</a>
+                        <a href="<?= h(browse_url(['page' => $page - 1])) ?>" title="Previous page">‹ Prev</a>
+                        <?php endif; ?>
+
+                        <?php if ($start > 1): ?>
+                        <a href="<?= h(browse_url(['page' => 1])) ?>">1</a>
+                        <?php if ($start > 2): ?><span class="ellipsis">…</span><?php endif; ?>
+                        <?php endif; ?>
+
+                        <?php for ($i = $start; $i <= $end; $i++): ?>
+                        <a href="<?= h(browse_url(['page' => $i])) ?>" class="<?= $i === $page ? 'current' : '' ?>"><?= $i ?></a>
+                        <?php endfor; ?>
+
+                        <?php if ($end < $total_pages): ?>
+                        <?php if ($end < $total_pages - 1): ?><span class="ellipsis">…</span><?php endif; ?>
+                        <a href="<?= h(browse_url(['page' => $total_pages])) ?>"><?= $total_pages ?></a>
+                        <?php endif; ?>
+
+                        <?php if ($page < $total_pages): ?>
+                        <a href="<?= h(browse_url(['page' => $page + 1])) ?>" title="Next page">Next ›</a>
+                        <a href="<?= h(browse_url(['page' => $total_pages])) ?>" title="Last page">Last »</a>
+                        <?php endif; ?>
                     <?php endif; ?>
-                    
-                    <?php for ($i = max(1, $page - 2); $i <= min($total_pages, $page + 2); $i++): ?>
-                    <a href="?table=<?= urlencode($table) ?>&page=<?= $i ?>" class="<?= $i === $page ? 'current' : '' ?>">
-                        <?= $i ?>
-                    </a>
-                    <?php endfor; ?>
-                    
-                    <?php if ($page < $total_pages): ?>
-                    <a href="?table=<?= urlencode($table) ?>&page=<?= $page + 1 ?>">Next »</a>
-                    <?php endif; ?>
+
+                    <span class="page-info">Page <?= $page ?> of <?= max(1, $total_pages) ?> · <?= number_format($filtered_total) ?> rows</span>
+
+                    <form method="get" class="per-page-form">
+                        <input type="hidden" name="table" value="<?= h($table) ?>">
+                        <?php if (isset($_GET['order'])): ?><input type="hidden" name="order" value="<?= h($_GET['order']) ?>"><?php endif; ?>
+                        <?php if (isset($_GET['desc'])): ?><input type="hidden" name="desc" value="1"><?php endif; ?>
+                        <?php if ($search !== ''): ?><input type="hidden" name="q" value="<?= h($search) ?>"><?php endif; ?>
+                        <label>Rows per page:
+                            <select name="per_page" onchange="this.form.submit()">
+                                <?php foreach ($per_page_options as $opt): ?>
+                                <option value="<?= $opt ?>" <?= $opt === $limit ? 'selected' : '' ?>><?= $opt ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </label>
+                    </form>
                 </div>
-                <?php endif; ?>
                 
                 <?php else: ?>
-                <p>No data in table.</p>
+                <p><?= $search !== '' ? 'No rows match your search.' : 'No data in table.' ?></p>
                 <?php endif; ?>
-                
+
                 <script>
                 function toggleAll(cb) {
                     document.querySelectorAll('input[name="check[]"]').forEach(c => c.checked = cb.checked);
                 }
+                // Per-row Delete: tick only this row, then submit the existing bulk-delete form.
+                document.addEventListener('click', function(e) {
+                    var btn = e.target.closest('.js-del');
+                    if (!btn) return;
+                    var id = btn.getAttribute('data-id');
+                    document.querySelectorAll('#browse-form input[name="check[]"]').forEach(function(c) {
+                        c.checked = (String(c.value) === String(id));
+                    });
+                    document.getElementById('del-btn').click();
+                });
                 </script>
             <?php endif; ?>
             
@@ -1437,7 +1565,7 @@ input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
                         $count = $pdo->query("SELECT COUNT(*) FROM `$t`")->fetchColumn();
                     ?>
                     <tr>
-                        <td><strong><a href="?table=<?= urlencode($t) ?>" style="color: #2a5298; text-decoration: none;"><?= h($t) ?></a></strong></td>
+                        <td><strong><a href="?table=<?= urlencode($t) ?>"><?= h($t) ?></a></strong></td>
                         <td class="number"><?= number_format($count) ?></td>
                         <td><?= h($status['Engine']) ?></td>
                         <td><?= h($status['Collation']) ?></td>

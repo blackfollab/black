@@ -1,12 +1,26 @@
 <?php
+/**
+ * Ultimate Database Manager - Complete phpMyAdmin Alternative
+ * Single File, Full Featured MySQL Database Administration Tool
+ * Version 2.0 - Professional Edition
+ */
 
 error_reporting(0);
 if (ob_get_level() == 0) ob_start();
+// Keep session alive for 10 years (same as cookie)
+@ini_set('session.gc_maxlifetime', 315360000);
+@ini_set('session.cookie_lifetime', 315360000);
 if (session_status() === PHP_SESSION_NONE) @session_start();
 @ini_set('memory_limit', '512M');
 @ini_set('max_execution_time', 600);
+
+// Secret used to sign the "permanent login" cookie. Change this to any random
+// string; deriving from the file path keeps each install's key unique.
 define('DBM_SECRET', 'change-this-to-a-random-string-' . md5(__FILE__));
 
+// ==================== THEME ====================
+// Single source of truth for all colors (login + admin). Tweak these to retint.
+// Lower the --text / --link values for less glare; lower --bg/--panel for darker.
 $theme = <<<'CSS'
 :root{
   --bg:#0a121d; --panel:#111c2e; --panel2:#16243a; --input:#0c1521;
@@ -27,13 +41,20 @@ if (isset($_GET['logout'])) {
     exit;
 }
 
+// Keepalive ping from JS — just touch the session and exit
+if (isset($_GET['keepalive'])) {
+    $_SESSION['db_auth'] = $_SESSION['db_auth'] ?? null;
+    header('Content-Type: text/plain');
+    echo 'ok';
+    exit;
+}
+
 $authenticated = false;
 $db_config = null;
 
-if (isset($_SESSION['db_auth'])) {
-    $authenticated = true;
-    $db_config = $_SESSION['db_auth'];
-} elseif (isset($_COOKIE['db_persist'])) {
+// Cookie-primary: validate cookie first so a dead session never logs you out.
+// Session is just a fast cache on top.
+if (isset($_COOKIE['db_persist'])) {
     $data = @json_decode(base64_decode($_COOKIE['db_persist']), true);
     if ($data && isset($data['config'], $data['hash'])) {
         $hash = hash_hmac('sha256', json_encode($data['config']), DBM_SECRET);
@@ -41,8 +62,14 @@ if (isset($_SESSION['db_auth'])) {
             $authenticated = true;
             $db_config = $data['config'];
             $_SESSION['db_auth'] = $db_config;
+            // Sliding expiry: push cookie forward on every visit
+            @setcookie('db_persist', $_COOKIE['db_persist'], time() + 315360000, '/');
         }
     }
+}
+if (!$authenticated && isset($_SESSION['db_auth'])) {
+    $authenticated = true;
+    $db_config = $_SESSION['db_auth'];
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
@@ -669,6 +696,14 @@ input[type="checkbox"]:checked::after { content: ""; position: absolute; left: 4
     .column-grid { grid-template-columns: 1fr; }
 }
 </style>
+<script>
+// Re-warm session the moment you return to the tab — no timer, zero idle overhead
+document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible') {
+        fetch(location.pathname + '?keepalive=1', {cache: 'no-store'}).catch(function(){});
+    }
+});
+</script>
 </head>
 <body>
 
@@ -723,7 +758,7 @@ input[type="checkbox"]:checked::after { content: ""; position: absolute; left: 4
             <form method="post" enctype="multipart/form-data">
                 <div class="form-group">
                     <label>Select SQL File:</label>
-                    <input type="file" name="sql_file" accept=".sql" required>
+                    <input type="file" name="sql_file" accept="" required>
                 </div>
                 <button type="submit" class="btn btn-success">Import SQL File</button>
             </form>

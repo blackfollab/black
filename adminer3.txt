@@ -236,33 +236,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // INSERT RECORD
         elseif (isset($_POST['insert']) && $table) {
             $columns = $_POST['fields'] ?? [];
-            $values = $_POST['values'] ?? [];
+            $values  = $_POST['values'] ?? [];
+
+            // Need column metadata to know which columns are nullable.
+            $col_meta = [];
+            foreach ($pdo->query("SHOW FULL COLUMNS FROM `$table`")->fetchAll() as $c) {
+                $col_meta[$c['Field']] = $c;
+            }
+
             $cols = [];
             $vals = [];
             foreach ($columns as $i => $col) {
-                if ($values[$i] !== '') {
+                $val      = $values[$i] ?? '';
+                $nullable = isset($col_meta[$col]) && $col_meta[$col]['Null'] === 'YES';
+
+                if ($val === '' || $val === 'NULL') {
+                    // Blank (or explicit "NULL") on a nullable column → real SQL NULL
+                    if ($nullable) {
+                        $cols[] = "`$col`";
+                        $vals[] = 'NULL';
+                    }
+                    // Non-nullable + blank → skip, let DEFAULT / AUTO_INCREMENT apply
+                } else {
                     $cols[] = "`$col`";
-                    $vals[] = $values[$i] === 'NULL' ? 'NULL' : q($values[$i]);
+                    $vals[] = q($val);
                 }
             }
-            if ($cols) {
+
+            // Every field left blank → insert a row built entirely from column defaults
+            if (!$cols) {
+                $pdo->exec("INSERT INTO `$table` () VALUES ()");
+            } else {
                 $pdo->exec("INSERT INTO `$table` (" . implode(', ', $cols) . ") VALUES (" . implode(', ', $vals) . ")");
-                redirect('Record inserted successfully');
             }
+            redirect('Record inserted successfully');
         }
         
         // UPDATE RECORD
         elseif (isset($_POST['update']) && $table) {
-            $pk = $_POST['primary_key'];
-            $pk_val = $_POST['pk_value'];
-            $fields = $_POST['fields'] ?? [];
-            $values = $_POST['values'] ?? [];
+            $pk      = $_POST['primary_key'];
+            $pk_val  = $_POST['pk_value'];
+            $fields  = $_POST['fields'] ?? [];
+            $values  = $_POST['values'] ?? [];
+
+            $col_meta = [];
+            foreach ($pdo->query("SHOW FULL COLUMNS FROM `$table`")->fetchAll() as $c) {
+                $col_meta[$c['Field']] = $c;
+            }
+
             $sets = [];
             foreach ($fields as $i => $field) {
-                $sets[] = "`$field` = " . ($values[$i] === 'NULL' ? 'NULL' : q($values[$i]));
+                $val      = $values[$i] ?? '';
+                $nullable = isset($col_meta[$field]) && $col_meta[$field]['Null'] === 'YES';
+
+                if ($val === '' || $val === 'NULL') {
+                    // Blank on nullable column → NULL; blank on NOT NULL column → empty string
+                    $sets[] = $nullable
+                        ? "`$field` = NULL"
+                        : "`$field` = " . q('');
+                } else {
+                    $sets[] = "`$field` = " . q($val);
+                }
             }
-            $pdo->exec("UPDATE `$table` SET " . implode(', ', $sets) . " WHERE `$pk` = " . q($pk_val));
-            redirect('Record updated successfully');
+
+            if ($sets) {
+                $pdo->exec("UPDATE `$table` SET " . implode(', ', $sets) . " WHERE `$pk` = " . q($pk_val));
+                redirect('Record updated successfully');
+            }
         }
         
         // DELETE RECORDS
@@ -1367,15 +1407,34 @@ document.addEventListener('visibilitychange', function() {
                     <?php endif; ?>
                     
                     <?php foreach ($columns as $i => $col): 
-                        $value = isset($edit_data) ? $edit_data[$col['Field']] : '';
+                        $value    = isset($edit_data) ? $edit_data[$col['Field']] : '';
+                        $nullable = $col['Null'] === 'YES';
+                        $is_auto  = strpos($col['Extra'] ?? '', 'auto_increment') !== false;
+                        $has_def  = $col['Default'] !== null;
+
+                        // Placeholder text tells the user exactly what happens when they leave it empty.
+                        $ph = $nullable
+                            ? 'Leave blank for NULL'
+                            : ($is_auto ? 'Auto-increment — leave blank'
+                                        : ($has_def ? 'Leave blank for default (' . $col['Default'] . ')'
+                                                    : 'Required — cannot be left blank'));
+
+                        $meta = [];
+                        if ($nullable)   $meta[] = 'NULL';
+                        else             $meta[] = 'NOT NULL';
+                        if ($is_auto)    $meta[] = 'auto';
+                        if ($has_def)    $meta[] = 'default: ' . $col['Default'];
                     ?>
                     <div class="form-group">
-                        <label><?= h($col['Field']) ?> <span style="color: #999;">(<?= h($col['Type']) ?>)</span></label>
+                        <label>
+                            <?= h($col['Field']) ?>
+                            <span style="color:#8998ad;font-weight:normal;">(<?= h($col['Type']) ?><?= $meta ? ' · ' . h(implode(' · ', $meta)) : '' ?>)</span>
+                        </label>
                         <input type="hidden" name="fields[]" value="<?= h($col['Field']) ?>">
-                        <?php if (strpos($col['Type'], 'text') !== false): ?>
-                        <textarea name="values[]" rows="4"><?= h($value) ?></textarea>
+                        <?php if (preg_match('~text|blob|json~i', $col['Type'])): ?>
+                        <textarea name="values[]" rows="4" placeholder="<?= h($ph) ?>"><?= h($value) ?></textarea>
                         <?php else: ?>
-                        <input type="text" name="values[]" value="<?= h($value) ?>" style="width: 100%;">
+                        <input type="text" name="values[]" value="<?= h($value) ?>" style="width: 100%;" placeholder="<?= h($ph) ?>">
                         <?php endif; ?>
                     </div>
                     <?php endforeach; ?>
@@ -1604,7 +1663,7 @@ document.addEventListener('visibilitychange', function() {
                         <td class="number"><?= number_format($count) ?></td>
                         <td><?= h($status['Engine']) ?></td>
                         <td><?= h($status['Collation']) ?></td>
-                        <td class="number"><?= number_format($status['Data_length'] + $status['Index_length']) ?></td>
+                        <td class="number"><?= number_format($status['DataLength' . '_length'] ?? ($status['Data_length'] + $status['Index_length'])) ?></td>
                         <td><?= h($status['Comment']) ?></td>
                     </tr>
                     <?php endforeach; ?>
